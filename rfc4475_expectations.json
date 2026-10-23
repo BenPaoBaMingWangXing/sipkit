@@ -1,0 +1,312 @@
+{
+ "_comment": [
+  "Expected verdicts for the RFC 4475 torture corpus.",
+  "Each entry was read off the prose of its section, not inferred from the",
+  "section number: 3.1.1.6 sits under 'Valid Messages' yet its text says the",
+  "grammar is buggy, and 3.1.2.2 is under 'Invalid Messages' yet describes a",
+  "framing delay rather than a syntax error.",
+  "",
+  "expect values:",
+  "  well-formed       parser must accept, no error-severity diagnostic",
+  "  syntax-rejected   grammar layer must reject",
+  "  semantic-rejected grammar ok, but a semantic rule must fire",
+  "  policy            verdict depends on the element's role; not asserted"
+ ],
+ "vectors": [
+  {
+   "id": "wsinv",
+   "section": "3.1.1.1",
+   "expect": "well-formed",
+   "note": "whitespace everywhere: folded lines, HCOLON spaces, odd case"
+  },
+  {
+   "id": "intmeth",
+   "section": "3.1.1.2",
+   "expect": "well-formed",
+   "note": "unknown method, widest legal token/URI character range"
+  },
+  {
+   "id": "esc01",
+   "section": "3.1.1.3",
+   "expect": "well-formed",
+   "note": "% escaping in user, addr params, no recursive unescape"
+  },
+  {
+   "id": "escnull",
+   "section": "3.1.1.4",
+   "expect": "well-formed",
+   "note": "%00 in user part; must not shorten the AOR"
+  },
+  {
+   "id": "esc02",
+   "section": "3.1.1.5",
+   "expect": "well-formed",
+   "note": "% that is not an escape; C%6Fntact is not Contact"
+  },
+  {
+   "id": "lwsdisp",
+   "section": "3.1.1.6",
+   "expect": "well-formed",
+   "note": "no LWS before < is an RFC 3261 grammar bug; must accept"
+  },
+  {
+   "id": "longreq",
+   "section": "3.1.1.7",
+   "expect": "well-formed",
+   "note": "very long header values and params"
+  },
+  {
+   "id": "dblreq",
+   "section": "3.1.1.8",
+   "expect": "well-formed",
+   "note": "two messages in one datagram; first parses, remainder is trailing"
+  },
+  {
+   "id": "semiuri",
+   "section": "3.1.1.9",
+   "expect": "well-formed",
+   "note": "semicolon params inside the URI user part"
+  },
+  {
+   "id": "transports",
+   "section": "3.1.1.10",
+   "expect": "well-formed",
+   "note": "known and unknown transport types in Via"
+  },
+  {
+   "id": "mpart01",
+   "section": "3.1.1.11",
+   "expect": "well-formed",
+   "note": "multipart/mime body; NOTE: the RFC's Content-Length (553) is 14 octets shorter than the hex body it prints, so the last 14 octets fall outside the declared body",
+   "roundtrip": false
+  },
+  {
+   "id": "unreason",
+   "section": "3.1.1.12",
+   "expect": "well-formed",
+   "note": "unusual reason phrase characters"
+  },
+  {
+   "id": "noreason",
+   "section": "3.1.1.13",
+   "expect": "well-formed",
+   "note": "empty reason phrase, trailing SP still required"
+  },
+  {
+   "id": "badinv01",
+   "section": "3.1.2.1",
+   "expect": "semantic-rejected",
+   "note": ";;,;,, separators without parameters; grammar admits the value, the separator rule rejects it"
+  },
+  {
+   "id": "clerr",
+   "section": "3.1.2.2",
+   "expect": "semantic-rejected",
+   "note": "Content-Length larger than the datagram: incomplete, not ill-formed"
+  },
+  {
+   "id": "ncl",
+   "section": "3.1.2.3",
+   "expect": "syntax-rejected",
+   "note": "negative Content-Length is not 1*DIGIT"
+  },
+  {
+   "id": "scalar02",
+   "section": "3.1.2.4",
+   "expect": "semantic-rejected",
+   "note": "CSeq/Max-Forwards/Expires beyond their ranges"
+  },
+  {
+   "id": "scalarlg",
+   "section": "3.1.2.5",
+   "expect": "semantic-rejected",
+   "note": "response scalar fields with overlarge values"
+  },
+  {
+   "id": "quotbal",
+   "section": "3.1.2.6",
+   "expect": "syntax-rejected",
+   "note": "unterminated quoted string in display name"
+  },
+  {
+   "id": "ltgtruri",
+   "section": "3.1.2.7",
+   "expect": "syntax-rejected",
+   "note": "<> around the Request-URI"
+  },
+  {
+   "id": "lwsruri",
+   "section": "3.1.2.8",
+   "expect": "syntax-rejected",
+   "note": "embedded LWS inside the Request-URI"
+  },
+  {
+   "id": "lwsstart",
+   "section": "3.1.2.9",
+   "expect": "syntax-rejected",
+   "note": "multiple SP between Request-Line elements"
+  },
+  {
+   "id": "trws",
+   "section": "3.1.2.10",
+   "expect": "syntax-rejected",
+   "note": "SP at the end of the Request-Line"
+  },
+  {
+   "id": "escruri",
+   "section": "3.1.2.11",
+   "expect": "semantic-rejected",
+   "note": "escaped headers in the Request-URI must not be treated as headers"
+  },
+  {
+   "id": "baddate",
+   "section": "3.1.2.12",
+   "expect": "syntax-rejected",
+   "note": "Date timezone must be GMT; UT/UTC/UCT are invalid"
+  },
+  {
+   "id": "regbadct",
+   "section": "3.1.2.13",
+   "expect": "semantic-rejected",
+   "note": "Contact addr-spec with URI headers must use angle brackets"
+  },
+  {
+   "id": "badaspec",
+   "section": "3.1.2.14",
+   "expect": "syntax-rejected",
+   "note": "spaces inside < >"
+  },
+  {
+   "id": "baddn",
+   "section": "3.1.2.15",
+   "expect": "syntax-rejected",
+   "note": "unquoted display name containing non-token characters"
+  },
+  {
+   "id": "badvers",
+   "section": "3.1.2.16",
+   "expect": "semantic-rejected",
+   "note": "SIP/3.0 parses as a version but is not supported"
+  },
+  {
+   "id": "mismatch01",
+   "section": "3.1.2.17",
+   "expect": "semantic-rejected",
+   "note": "start-line method != CSeq method"
+  },
+  {
+   "id": "mismatch02",
+   "section": "3.1.2.18",
+   "expect": "semantic-rejected",
+   "note": "unknown method plus CSeq mismatch"
+  },
+  {
+   "id": "bigcode",
+   "section": "3.1.2.19",
+   "expect": "semantic-rejected",
+   "note": "status code outside 100..699; must not crash the receiver"
+  },
+  {
+   "id": "badbranch",
+   "section": "3.2.1",
+   "expect": "semantic-rejected",
+   "note": "z9hG4bK branch with no identifier"
+  },
+  {
+   "id": "insuf",
+   "section": "3.3.1",
+   "expect": "semantic-rejected",
+   "note": "missing required header fields"
+  },
+  {
+   "id": "unkscm",
+   "section": "3.3.2",
+   "expect": "semantic-rejected",
+   "note": "Request-URI with an unknown scheme"
+  },
+  {
+   "id": "novelsc",
+   "section": "3.3.3",
+   "expect": "semantic-rejected",
+   "note": "Request-URI with a known but unsupported scheme"
+  },
+  {
+   "id": "unksm2",
+   "section": "3.3.4",
+   "expect": "policy",
+   "note": "unknown URI scheme in To: proxies forward, a registrar 400s"
+  },
+  {
+   "id": "bext01",
+   "section": "3.3.5",
+   "expect": "semantic-rejected",
+   "note": "Proxy-Require/Require with unsupported options"
+  },
+  {
+   "id": "invut",
+   "section": "3.3.6",
+   "expect": "policy",
+   "note": "unknown Content-Type: a proxy forwards, an endpoint 415s"
+  },
+  {
+   "id": "regaut01",
+   "section": "3.3.7",
+   "expect": "well-formed",
+   "note": "unknown Authorization scheme is not a parse error"
+  },
+  {
+   "id": "multi01",
+   "section": "3.3.8",
+   "expect": "semantic-rejected",
+   "note": "multiple values in single-valued headers"
+  },
+  {
+   "id": "mcl01",
+   "section": "3.3.9",
+   "expect": "semantic-rejected",
+   "note": "multiple Content-Length values"
+  },
+  {
+   "id": "bcast",
+   "section": "3.3.10",
+   "expect": "policy",
+   "note": "broadcast Via in a 200: routing policy, not a parse defect"
+  },
+  {
+   "id": "zeromf",
+   "section": "3.3.11",
+   "expect": "well-formed",
+   "note": "Max-Forwards: 0 is legal; 483 is a forwarding decision"
+  },
+  {
+   "id": "cparam01",
+   "section": "3.3.12",
+   "expect": "well-formed",
+   "note": "Contact header parameter on REGISTER"
+  },
+  {
+   "id": "cparam02",
+   "section": "3.3.13",
+   "expect": "well-formed",
+   "note": "url-parameter on REGISTER"
+  },
+  {
+   "id": "regescrt",
+   "section": "3.3.14",
+   "expect": "well-formed",
+   "note": "REGISTER with a URL-escaped Route header"
+  },
+  {
+   "id": "sdp01",
+   "section": "3.3.15",
+   "expect": "policy",
+   "note": "unacceptable Accept offering: endpoint 406, proxy forwards"
+  },
+  {
+   "id": "inv2543",
+   "section": "3.4.1",
+   "expect": "well-formed",
+   "note": "RFC 2543 syntax, no Max-Forwards: backward compatible"
+  }
+ ]
+}

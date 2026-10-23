@@ -9,6 +9,10 @@ target
 rfc4475.txt
 rfc3261.txt
 
+# Human-readable dump of the extracted messages: a build artefact that contains
+# raw CRLF octets, so it is regenerated rather than tracked.
+rfc4475_vectors.txt
+
 # Python tooling leftovers
 __pycache__/
 *.pyc
