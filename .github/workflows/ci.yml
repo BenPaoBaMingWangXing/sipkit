@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test (${{ matrix.os }} / ${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        target: [wasm, wasm-gc, js, native]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MoonBit (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Install MoonBit (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          iwr https://cli.moonbitlang.com/install/windows.ps1 -UseBasicParsing | iex
+          "$HOME\.moon\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Toolchain version
+        run: moon version --all
+
+      - name: Check
+        run: moon check --target ${{ matrix.target }}
+
+      - name: Format check
+        run: moon fmt --check
+
+      - name: Test
+        run: moon test --target ${{ matrix.target }}
+
+      - name: Build
+        run: moon build --target ${{ matrix.target }}
+
+  conformance:
+    name: conformance fixture is reproducible
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The fixture must be derivable from the RFC by the committed tools.
+      # Recomputation from upstream is what makes the "external evidence" claim
+      # checkable rather than asserted.
+      - name: Re-extract from rfc-editor.org and compare
+        shell: bash
+        run: |
+          curl -fsSL https://www.rfc-editor.org/rfc/rfc4475.txt -o /tmp/rfc4475.txt
+          python3 tools/extract_rfc4475.py --rfc /tmp/rfc4475.txt --out-dir /tmp
+          python3 - <<'PY'
+          import json
+          fresh = json.load(open('/tmp/rfc4475_vectors.json'))
+          committed = json.load(open('rfc4475_vectors.json'))
+          assert fresh == committed, "extractor output differs from the committed vector set"
+          print(f"{len(fresh)} vectors reproduced identically from the RFC")
+          PY
+
+      - name: Regenerated test module matches the committed one
+        shell: bash
+        run: |
+          cp rfc4475_test.mbt /tmp/rfc4475_test.mbt.bak
+          python3 tools/gen_tests.py
+          diff -u /tmp/rfc4475_test.mbt.bak rfc4475_test.mbt \
+            || { echo "::error::rfc4475_test.mbt is stale; run tools/gen_tests.py and commit"; exit 1; }
+
+  provenance:
+    name: provenance and licensing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: LICENSE and NOTICE are present and specific
+        shell: bash
+        run: |
+          set -e
+          test -s LICENSE
+          test -s NOTICE
+          grep -q "Apache License" LICENSE
+          grep -q "RFC 3261" NOTICE
+          grep -q "RFC 4475" NOTICE
+          echo "license and notice checks passed"
+
+      - name: No RFC full text is bundled
+        shell: bash
+        run: |
+          for f in rfc4475.txt rfc3261.txt; do
+            if [ -e "$f" ]; then
+              echo "::error::$f must not be committed; the reproduce step fetches it"
+              exit 1
+            fi
+          done
