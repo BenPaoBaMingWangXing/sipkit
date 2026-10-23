@@ -2,35 +2,37 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
+env:
+  # Pinned on purpose. Formatting and diagnostics change between toolchain
+  # releases, so "latest" would make the fmt gate and the generated fixture drift
+  # without a single line of this repository changing.
+  MOONBIT_VERSION: 0.1.20260904
+
 jobs:
   test:
-    name: test (${{ matrix.os }} / ${{ matrix.target }})
-    runs-on: ${{ matrix.os }}
+    name: test (${{ matrix.target }})
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # Windows is deliberately absent: the official CLI installer
+        # (cli.moonbitlang.com/install/unix.sh) supports macOS and Linux only, and
+        # the published Windows artifacts are not fetchable by URL. A Windows leg
+        # that cannot install the toolchain would be noise, so the matrix covers
+        # the three JS/Wasm backends plus native on Linux.
         target: [wasm, wasm-gc, js, native]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install MoonBit (Linux)
-        if: runner.os == 'Linux'
+      - name: Install MoonBit ${{ env.MOONBIT_VERSION }}
         shell: bash
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$MOONBIT_VERSION"
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
-
-      - name: Install MoonBit (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          iwr https://cli.moonbitlang.com/install/windows.ps1 -UseBasicParsing | iex
-          "$HOME\.moon\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
       - name: Toolchain version
         run: moon version --all
@@ -48,18 +50,24 @@ jobs:
         run: moon build --target ${{ matrix.target }}
 
   conformance:
-    name: conformance fixture is reproducible
+    name: conformance evidence is reproducible
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install MoonBit ${{ env.MOONBIT_VERSION }}
+        shell: bash
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$MOONBIT_VERSION"
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      # The fixture must be derivable from the RFC by the committed tools.
-      # Recomputation from upstream is what makes the "external evidence" claim
-      # checkable rather than asserted.
+      # The corpus must be derivable from the RFC by the committed tool. This is
+      # what makes the "external evidence" claim checkable on every push instead
+      # of asserted once.
       - name: Re-extract from rfc-editor.org and compare
         shell: bash
         run: |
@@ -70,16 +78,25 @@ jobs:
           fresh = json.load(open('/tmp/rfc4475_vectors.json'))
           committed = json.load(open('rfc4475_vectors.json'))
           assert fresh == committed, "extractor output differs from the committed vector set"
-          print(f"{len(fresh)} vectors reproduced identically from the RFC")
+          ids = [v['id'] for v in fresh]
+          assert len(ids) == 49, f"expected 49 vectors, got {len(ids)}"
+          print(f"{len(ids)} vectors reproduced identically from the RFC")
           PY
 
+      # The test module is generated and then formatted, so the comparison must
+      # run the same two steps. Diffing raw generator output would fail on
+      # whitespace that `moon fmt` legitimately rewrites.
       - name: Regenerated test module matches the committed one
         shell: bash
         run: |
-          cp rfc4475_test.mbt /tmp/rfc4475_test.mbt.bak
+          cp rfc4475_test.mbt /tmp/committed_test.mbt
           python3 tools/gen_tests.py
-          diff -u /tmp/rfc4475_test.mbt.bak rfc4475_test.mbt \
-            || { echo "::error::rfc4475_test.mbt is stale; run tools/gen_tests.py and commit"; exit 1; }
+          moon fmt
+          if ! diff -u /tmp/committed_test.mbt rfc4475_test.mbt; then
+            echo "::error::rfc4475_test.mbt is stale; run tools/gen_tests.py && moon fmt, then commit"
+            exit 1
+          fi
+          echo "generated test module is identical to the committed one"
 
   provenance:
     name: provenance and licensing
@@ -107,3 +124,4 @@ jobs:
               exit 1
             fi
           done
+          echo "no RFC full text committed"
