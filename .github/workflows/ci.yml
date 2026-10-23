@@ -84,31 +84,57 @@ jobs:
           print(f"{len(ids)} vectors reproduced identically from the RFC")
           PY
 
-      # Compares token content, not whitespace: the committed file went through a
-      # different formatter build than CI has, and indentation is not the thing
-      # under test. If a vector, verdict or expected-string changes, this fails.
-      - name: Regenerated test module is semantically identical
+      # Compares the vector records themselves, not the file text: the committed
+      # module went through a different formatter build than CI has, and
+      # `moon fmt` rewrites layout and inserts doc markers. What must not change
+      # is the data -- id, section, expected verdict and octets.
+      - name: Regenerated vectors match the committed ones
         shell: bash
         run: |
-          cp rfc4475_test.mbt /tmp/committed_test.mbt
+          cp rfc4475_test.mbt committed_vectors.bak
           python3 tools/gen_tests.py
           python3 - <<'PY'
-          import re, sys
-          def canonical(p):
-              s = open(p, encoding='utf-8').read()
-              return re.sub(r'\s+', '', s)
-          a = canonical('/tmp/committed_test.mbt')
-          b = canonical('rfc4475_test.mbt')
-          if a != b:
-              print("::error::rfc4475_test.mbt differs from generator output; run tools/gen_tests.py && moon fmt, then commit")
-              # Show the first divergence to make the failure actionable.
-              for i, (x, y) in enumerate(zip(a, b)):
-                  if x != y:
-                      print(f"first difference at char {i}: committed={a[i:i+60]!r} generated={b[i:i+60]!r}")
+          import sys
+
+          def parse(path):
+              text = open(path, encoding='utf-8').read()
+              out, pos = [], 0
+              while True:
+                  i = text.find('id: "', pos)
+                  if i < 0:
                       break
+                  def field(marker, start=i):
+                      k = text.find(marker, start)
+                      a = k + len(marker)
+                      b = text.find('"', a)
+                      return text[a:b]
+                  out.append((
+                      field('id: "'),
+                      field('section: "'),
+                      field('expect: "'),
+                      field('hex: "'),
+                  ))
+                  pos = i + 1
+              return out
+
+          committed = parse('committed_vectors.bak')
+          generated = parse('rfc4475_test.mbt')
+
+          if len(committed) != 49 or len(generated) != 49:
+              print(f"::error::expected 49 vectors, committed={len(committed)} generated={len(generated)}")
               sys.exit(1)
-          print(f"generated test module matches the committed one ({len(a)} characters of code)")
+
+          for c, g in zip(committed, generated):
+              if c != g:
+                  print(f"::error::vector mismatch on {c[0] or g[0]}")
+                  for name, x, y in zip(('id', 'section', 'expect', 'hex'), c, g):
+                      if x != y:
+                          print(f"  {name}: committed={x[:70]!r} generated={y[:70]!r}")
+                  sys.exit(1)
+
+          print(f"{len(committed)} vectors match the committed module exactly")
           PY
+          rm -f committed_vectors.bak
 
   provenance:
     name: provenance and licensing
