@@ -198,19 +198,24 @@ Stated plainly, because a conformance claim is only as good as its edges:
 
 1. **The native backend is not verified locally.** This development machine has no system C
    compiler (`cl`, `cc`, `gcc`, `clang` all absent), so `moon test --target native` cannot run
-   here. CI covers it on Ubuntu. The three JS/Wasm backends pass.
-2. **`mpart01` is a framing vector, not a round-trip vector.** The RFC prints
+   here. CI covers it on Ubuntu. The three JS/Wasm backends pass locally.
+2. **CI runs a rolling toolchain.** Version-pinned archives under `cli.moonbitlang.com/binaries/<version>/`
+   return 403, so CI cannot install the exact build (`0.1.20260904`) this repository was
+   formatted with. The formatting gate therefore reports without blocking; `check`, `test`
+   and `build` stay hard gates on all four targets. The generated fixture is compared
+   token-for-token rather than character-for-character for the same reason.
+3. **`mpart01` is a framing vector, not a round-trip vector.** The RFC prints
    `Content-Length: 553` for a hex body that is 14 octets longer. `sipkit` frames by
    `Content-Length` (the correct behaviour) and reports the remaining 14 octets as trailing.
    The mismatch is in the RFC text, not in the parser.
-3. **`?` inside a URI user part is ambiguous by construction.** RFC 3261 allows `?` in `user`,
+4. **`?` inside a URI user part is ambiguous by construction.** RFC 3261 allows `?` in `user`,
    but `?` also starts URI headers. `sipkit` treats the first `@` as the userinfo separator,
    which is what makes §3.1.1.2 (`intmeth`) parse. A URI with no userinfo whose `?`-headers
    contain `@` would be misread; the grammar has no correct resolution for this.
-4. **Character handling is octet-oriented, not UTF-8 validated.** RFC 3261 admits
+5. **Character handling is octet-oriented, not UTF-8 validated.** RFC 3261 admits
    `UTF8-NONASCII` in several productions; `sipkit` preserves such octets without validating
    UTF-8 well-formedness.
-5. **`Date` validation is structural.** It enforces the `GMT` zone (the part §3.1.2.12 tests)
+6. **`Date` validation is structural.** It enforces the `GMT` zone (the part §3.1.2.12 tests)
    and a `HH:MM:SS` time, but does not check weekday/date agreement.
-6. **Typed header checks are limited.** Diagnostics understand `CSeq`, `Max-Forwards`,
+7. **Typed header checks are limited.** Diagnostics understand `CSeq`, `Max-Forwards`,
    `Retry-After`, `Via` and `Contact`; other fields are checked structurally only.
