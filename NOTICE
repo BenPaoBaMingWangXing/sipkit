@@ -1,0 +1,82 @@
+sipkit
+Copyright 2026 BenPaoBaMingWangXing
+
+This product includes material derived from Internet Engineering Task Force
+(IETF) documents. The IETF Trust retains copyright in the RFC text; the
+extracted message octets are reproduced under the IETF Trust Legal Provisions
+(TLP) as described below.
+
+--------------------------------------------------------------------------------
+1. Source code
+--------------------------------------------------------------------------------
+
+The source code of this project is licensed under the Apache License, Version
+2.0. See the LICENSE file.
+
+--------------------------------------------------------------------------------
+2. RFC 3261 — SIP: Session Initiation Protocol
+--------------------------------------------------------------------------------
+
+Used for: the message grammar implemented in bytes.mbt, token.mbt, uri.mbt,
+address.mbt, header.mbt and message.mbt, and the diagnostic rules in
+diagnose.mbt.
+
+    RFC 3261, Rosenberg et al., "SIP: Session Initiation Protocol", June 2002.
+    https://www.rfc-editor.org/rfc/rfc3261.txt
+    Copyright (c) 2002 IETF Trust and the persons identified as the document
+    authors. All rights reserved.
+
+This document and translations of it may be copied and furnished to others,
+and derivative works that comment on or otherwise explain it or assist in its
+implementation may be prepared, copied, published and distributed, in whole or
+in part, without restriction of any kind, provided that the above copyright
+notice and this paragraph are included on all such copies and derivative works.
+
+--------------------------------------------------------------------------------
+3. RFC 4475 — SIP Torture Test Messages
+--------------------------------------------------------------------------------
+
+Used for: the conformance corpus in rfc4475_vectors.json, rfc4475_test.mbt and
+rfc4475_expectations.json. The message octets reproduced there are extracted
+mechanically from the RFC by tools/extract_rfc4475.py. Section numbers and
+message identifiers ("Message Details : <id>") are retained as provenance.
+
+    RFC 4475, Sparks et al., "Session Initiation Protocol (SIP) Torture Test
+    Messages", May 2006.
+    https://www.rfc-editor.org/rfc/rfc4475.txt
+    Copyright (c) 2006 IETF Trust and the persons identified as the document
+    authors. All rights reserved.
+
+Reproduction of the message octets is made under the IETF Trust Legal
+Provisions, Section 3 (Rights in IETF Documents) and the "Code Components"
+provisions thereof, which permit extraction of code components from IETF
+documents into software. The RFC text itself is NOT included in this
+repository; rfc4475.txt is fetched by the user when reproducing the fixtures.
+
+The verdicts recorded in rfc4475_expectations.json are paraphrases of the
+prose in each RFC section, prepared by this project. They are not quotations
+of normative text; where they conflict with the RFC, the RFC governs.
+
+--------------------------------------------------------------------------------
+4. Generated files
+--------------------------------------------------------------------------------
+
+The following files are generated and contain only message octets, message
+identifiers and section numbers:
+
+    rfc4475_vectors.json
+    rfc4475_vectors.txt
+    rfc4475_test.mbt
+
+Regenerate them with:
+
+    python3 tools/extract_rfc4475.py --rfc rfc4475.txt --out-dir .
+    python3 tools/gen_tests.py
+
+--------------------------------------------------------------------------------
+5. No warranty
+--------------------------------------------------------------------------------
+
+The RFC excerpts are provided on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied, per the IETF Trust Legal
+Provisions. Nothing in this NOTICE grants rights to any IETF trademark.
