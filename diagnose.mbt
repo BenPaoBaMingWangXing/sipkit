@@ -80,21 +80,25 @@ pub struct Diagnostic {
 }
 
 ///|
+/// The rule that fired.
 pub fn Diagnostic::code(self : Diagnostic) -> DiagCode {
   self.code
 }
 
 ///|
+/// Whether this is an error or a warning. Only errors change the verdict.
 pub fn Diagnostic::severity(self : Diagnostic) -> Severity {
   self.severity
 }
 
 ///|
+/// Byte offset into the input where the problem was seen.
 pub fn Diagnostic::offset(self : Diagnostic) -> Int {
   self.offset
 }
 
 ///|
+/// Human-readable explanation. Never part of a contract; matches on `code`.
 pub fn Diagnostic::detail(self : Diagnostic) -> String {
   self.detail
 }

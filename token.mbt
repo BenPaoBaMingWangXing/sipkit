@@ -69,41 +69,49 @@ pub struct Cursor {
 }
 
 ///|
+/// Creates a cursor over a byte view.
 pub fn Cursor::new(src : BytesView) -> Cursor {
   { src, pos: 0, }
 }
 
 ///|
+/// Creates a cursor over owned octets.
 pub fn Cursor::from_bytes(src : Bytes) -> Cursor {
   { src: src.view(), pos: 0, }
 }
 
 ///|
+/// Current byte offset.
 pub fn Cursor::position(self : Cursor) -> Int {
   self.pos
 }
 
 ///|
+/// Total octets in the underlying view.
 pub fn Cursor::length(self : Cursor) -> Int {
   self.src.length()
 }
 
 ///|
+/// True when every octet has been consumed.
 pub fn Cursor::eof(self : Cursor) -> Bool {
   self.pos >= self.src.length()
 }
 
 ///|
+/// The octet at the cursor, without advancing.
 pub fn Cursor::peek(self : Cursor) -> Byte? {
   self.src.get(self.pos)
 }
 
 ///|
+/// The octet `ahead` positions past the cursor, if any.
 pub fn Cursor::peek_at(self : Cursor, ahead : Int) -> Byte? {
   self.src.get(self.pos + ahead)
 }
 
 ///|
+/// Consumes and returns one octet.
 pub fn Cursor::advance(self : Cursor) -> Byte? {
   let b = self.src.get(self.pos)
   match b {
@@ -128,6 +136,7 @@ pub fn Cursor::expect_byte(self : Cursor, want : Byte) -> Unit raise SipError {
 }
 
 ///|
+/// Case-sensitive literal match at the cursor.
 pub fn Cursor::starts_with(self : Cursor, lit : String) -> Bool {
   let l = ascii_bytes_of(lit).view()
   if self.pos + l.length() > self.src.length() {
@@ -144,6 +153,7 @@ pub fn Cursor::starts_with(self : Cursor, lit : String) -> Bool {
 }
 
 ///|
+/// ASCII case-insensitive literal match at the cursor.
 pub fn Cursor::starts_with_ignore_case(self : Cursor, lit : String) -> Bool {
   let l = ascii_bytes_of(lit).view()
   if self.pos + l.length() > self.src.length() {
@@ -258,11 +268,13 @@ pub struct QuotedString {
 }
 
 ///|
+/// The quoted string including its surrounding DQUOTEs.
 pub fn QuotedString::raw(self : QuotedString) -> Bytes {
   self.raw
 }
 
 ///|
+/// The content, with quoted-pairs resolved.
 pub fn QuotedString::value(self : QuotedString) -> Bytes {
   self.value
 }

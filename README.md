@@ -25,6 +25,7 @@ Coverage                  50 uncovered lines in the library (about 97% of 1,698
 Tests                     71, green on wasm · wasm-gc · js · native
 Dependencies              none
 Panics in the library     none — no `unwrap`, `panic` or `abort` outside tests
+API documentation         112 of 112 public functions carry a doc comment
 ```
 
 \* `mpart01` is a framing vector, not a round-trip vector — see Known limitations.

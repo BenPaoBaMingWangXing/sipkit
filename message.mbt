@@ -28,16 +28,19 @@ pub struct RequestLine {
 }
 
 ///|
+/// The method token.
 pub fn RequestLine::verb(self : RequestLine) -> Bytes {
   self.verb
 }
 
 ///|
+/// The request URI, parsed or kept verbatim for a non-SIP scheme.
 pub fn RequestLine::uri(self : RequestLine) -> RequestUri {
   self.uri
 }
 
 ///|
+/// The protocol version octets, for example `SIP/2.0`.
 pub fn RequestLine::version(self : RequestLine) -> Bytes {
   self.version
 }
@@ -52,16 +55,19 @@ pub struct StatusLine {
 }
 
 ///|
+/// The protocol version octets.
 pub fn StatusLine::version(self : StatusLine) -> Bytes {
   self.version
 }
 
 ///|
+/// The numeric status code, saturated when the digits overflow.
 pub fn StatusLine::code(self : StatusLine) -> Int {
   self.code
 }
 
 ///|
+/// The reason phrase, which may be empty.
 pub fn StatusLine::reason(self : StatusLine) -> Bytes {
   self.reason
 }
@@ -99,31 +105,37 @@ pub struct SipMessage {
 }
 
 ///|
+/// The start line, request or response.
 pub fn SipMessage::start_line(self : SipMessage) -> StartLine {
   self.start
 }
 
 ///|
+/// All header fields in wire order, duplicates included.
 pub fn SipMessage::headers(self : SipMessage) -> Array[HeaderField] {
   self.headers
 }
 
 ///|
+/// The body, framed by `Content-Length`.
 pub fn SipMessage::body(self : SipMessage) -> Bytes {
   self.body
 }
 
 ///|
+/// Octets that followed the declared body in the same datagram.
 pub fn SipMessage::trailing(self : SipMessage) -> Bytes {
   self.trailing
 }
 
 ///|
+/// Number of octets belonging to this message.
 pub fn SipMessage::consumed(self : SipMessage) -> Int {
   self.consumed
 }
 
 ///|
+/// The request method, or `None` for a response.
 pub fn SipMessage::verb(self : SipMessage) -> Bytes? {
   match self.start {
     Request(r) => Some(r.verb)
@@ -132,6 +144,7 @@ pub fn SipMessage::verb(self : SipMessage) -> Bytes? {
 }
 
 ///|
+/// The status code, or `None` for a request.
 pub fn SipMessage::status_code(self : SipMessage) -> Int? {
   match self.start {
     Request(_) => None

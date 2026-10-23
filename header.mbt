@@ -31,26 +31,31 @@ pub struct HeaderField {
 }
 
 ///|
+/// The field name as written: case preserved, never percent-unescaped.
 pub fn HeaderField::name(self : HeaderField) -> Bytes {
   self.name
 }
 
 ///|
+/// The semantic value, with folds collapsed to one SP and outer whitespace trimmed.
 pub fn HeaderField::value(self : HeaderField) -> Bytes {
   self.value
 }
 
 ///|
+/// The field line as received, without its terminating CRLF.
 pub fn HeaderField::raw(self : HeaderField) -> Bytes {
   self.raw
 }
 
 ///|
+/// Byte offset of the field name in the input.
 pub fn HeaderField::offset(self : HeaderField) -> Int {
   self.offset
 }
 
 ///|
+/// 1-based line number, for reporting.
 pub fn HeaderField::line(self : HeaderField) -> Int {
   self.line
 }

@@ -26,11 +26,13 @@ pub struct HeaderParam {
 }
 
 ///|
+/// Returns the parameter name as written on the wire.
 pub fn HeaderParam::name(self : HeaderParam) -> Bytes {
   self.name
 }
 
 ///|
+/// Returns the parameter value, or `None` for a valueless flag such as `;lr`.
 pub fn HeaderParam::value(self : HeaderParam) -> Bytes? {
   self.value
 }
@@ -69,21 +71,25 @@ pub struct NameAddr {
 }
 
 ///|
+/// Returns the exact octets this address was parsed from.
 pub fn NameAddr::raw(self : NameAddr) -> Bytes {
   self.raw
 }
 
 ///|
+/// Returns the display name, or `None` when the value had none.
 pub fn NameAddr::display(self : NameAddr) -> Bytes? {
   self.display
 }
 
 ///|
+/// True when the wire form quoted the display name.
 pub fn NameAddr::display_quoted(self : NameAddr) -> Bool {
   self.display_quoted
 }
 
 ///|
+/// Returns the address spec: a parsed SIP URI, or verbatim octets for another scheme.
 pub fn NameAddr::uri(self : NameAddr) -> AddrSpec {
   self.uri
 }
@@ -98,11 +104,13 @@ pub fn NameAddr::sip_uri(self : NameAddr) -> SipUri? {
 }
 
 ///|
+/// Returns the header parameters that followed the address.
 pub fn NameAddr::params(self : NameAddr) -> Array[HeaderParam] {
   self.params
 }
 
 ///|
+/// True when the value used `<>` around the addr-spec.
 pub fn NameAddr::had_angle_brackets(self : NameAddr) -> Bool {
   self.had_angle_brackets
 }

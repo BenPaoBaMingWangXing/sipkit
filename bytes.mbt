@@ -72,21 +72,25 @@ pub const DOT : Byte = b'.'
 pub const MINUS : Byte = b'-'
 
 ///|
+/// True for ASCII `0`-`9`.
 pub fn is_digit(b : Byte) -> Bool {
   b >= b'0' && b <= b'9'
 }
 
 ///|
+/// True for ASCII letters.
 pub fn is_alpha(b : Byte) -> Bool {
   (b >= b'a' && b <= b'z') || (b >= b'A' && b <= b'Z')
 }
 
 ///|
+/// True for ASCII letters and digits.
 pub fn is_alnum(b : Byte) -> Bool {
   is_digit(b) || is_alpha(b)
 }
 
 ///|
+/// True for ASCII hexadecimal digits in either case.
 pub fn is_hexdig(b : Byte) -> Bool {
   is_digit(b) || (b >= b'A' && b <= b'F') || (b >= b'a' && b <= b'f')
 }
@@ -158,6 +162,7 @@ pub fn eq_ignore_ascii_case(a : Byte, b : Byte) -> Bool {
 }
 
 ///|
+/// Lowercases an ASCII letter; any other octet passes through.
 pub fn lower_ascii(b : Byte) -> Byte {
   if b >= b'A' && b <= b'Z' {
     b + 32
@@ -185,6 +190,7 @@ pub fn bytes_eq_ignore_ascii_case(a : BytesView, b : BytesView) -> Bool {
 }
 
 ///|
+/// Borrows the whole of `b` as a view.
 pub fn bytes_view_of(b : Bytes) -> BytesView {
   b.view()
 }
@@ -201,6 +207,7 @@ pub fn copy_range(src : BytesView, start : Int, end : Int) -> Bytes {
 }
 
 ///|
+/// Copies a view into owned octets.
 pub fn bytes_of_view(v : BytesView) -> Bytes {
   copy_range(v, 0, v.length())
 }

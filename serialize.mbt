@@ -51,16 +51,19 @@ pub struct Analysis {
 }
 
 ///|
+/// The parsed message, or `None` when the grammar refused the input.
 pub fn Analysis::message(self : Analysis) -> SipMessage? {
   self.message
 }
 
 ///|
+/// The syntax error kind and offset, when parsing failed.
 pub fn Analysis::syntax(self : Analysis) -> (SyntaxKind, Int)? {
   self.syntax
 }
 
 ///|
+/// Semantic findings. Empty when parsing failed.
 pub fn Analysis::diagnostics(self : Analysis) -> Array[Diagnostic] {
   self.diagnostics
 }
@@ -87,6 +90,7 @@ pub impl Show for Verdict with fn to_string(self : Verdict) -> String {
 }
 
 ///|
+/// Three-way verdict, mirroring the split RFC 4475 makes.
 pub fn Analysis::verdict(self : Analysis) -> Verdict {
   match self.message {
     None => SyntaxRejected

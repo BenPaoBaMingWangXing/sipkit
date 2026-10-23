@@ -59,11 +59,13 @@ pub struct UriParam {
 }
 
 ///|
+/// The parameter name.
 pub fn UriParam::name(self : UriParam) -> Bytes {
   self.name
 }
 
 ///|
+/// The parameter value, or `None` for a flag such as `;lr`.
 pub fn UriParam::value(self : UriParam) -> Bytes? {
   self.value
 }
@@ -77,11 +79,13 @@ pub struct UriHeader {
 }
 
 ///|
+/// The URI header name, the part before `=`.
 pub fn UriHeader::name(self : UriHeader) -> Bytes {
   self.name
 }
 
 ///|
+/// The URI header value.
 pub fn UriHeader::value(self : UriHeader) -> Bytes {
   self.value
 }
@@ -101,41 +105,49 @@ pub struct SipUri {
 }
 
 ///|
+/// The exact octets the URI was parsed from.
 pub fn SipUri::raw(self : SipUri) -> Bytes {
   self.raw
 }
 
 ///|
+/// `sip`, `sips`, or another scheme kept verbatim.
 pub fn SipUri::scheme(self : SipUri) -> UriScheme {
   self.scheme
 }
 
 ///|
+/// The user part, or `None` when absent.
 pub fn SipUri::user(self : SipUri) -> Bytes? {
   self.user
 }
 
 ///|
+/// The password, or `None` when absent.
 pub fn SipUri::password(self : SipUri) -> Bytes? {
   self.password
 }
 
 ///|
+/// The host in the form it was written, IPv6 brackets included.
 pub fn SipUri::host(self : SipUri) -> Host {
   self.host
 }
 
 ///|
+/// The port, or `None` when absent.
 pub fn SipUri::port(self : SipUri) -> Int? {
   self.port
 }
 
 ///|
+/// URI parameters in wire order.
 pub fn SipUri::params(self : SipUri) -> Array[UriParam] {
   self.params
 }
 
 ///|
+/// URI headers in wire order.
 pub fn SipUri::headers(self : SipUri) -> Array[UriHeader] {
   self.headers
 }
