@@ -1,5 +1,7 @@
 # sipkit
 
+[![CI](https://github.com/BenPaoBaMingWangXing/sipkit/actions/workflows/ci.yml/badge.svg)](https://github.com/BenPaoBaMingWangXing/sipkit/actions/workflows/ci.yml)
+
 **Sans-IO SIP message parsing, canonical re-emission and conformance diagnostics for MoonBit.**
 
 SIP is the signalling protocol behind every VoIP call, SBC and IMS core. A SIP parser is
