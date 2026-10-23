@@ -175,6 +175,69 @@ no error-severity diagnostic, `syntax-rejected` means the grammar refused the oc
 Warnings (a missing `Max-Forwards`, an RFC 2543 style Via without `branch`, trailing octets)
 do **not** change the verdict, because RFC 4475 accepts those messages.
 
+## Examples
+
+Three runnable programs, no dependencies, no setup:
+
+```bash
+moon run examples/parse_dump    # parse an INVITE, print every recovered field
+moon run examples/diagnose      # the three verdicts, side by side
+moon run examples/uri           # URI decomposition, including the awkward cases
+```
+
+`parse_dump` prints what actually came out of the octets, not a pretty-printed
+restatement:
+
+```
+start line
+  method     INVITE
+  uri.scheme sip
+  uri.user   bob
+  uri.host   example.com
+  uri.port   5060
+  uri.params 1
+    ;transport=tcp
+headers (9), in wire order
+  line 2  Via: SIP/2.0/UDP alice-pc.example.com:5060;branch=z9hG4bK776asdhds
+  ...
+round-trip identical: true
+```
+
+`diagnose` is the one worth reading, because it shows why the two layers are
+separate — the third case parses cleanly and still fails:
+
+```
+--- semantic-rejected
+    verdict: semantic-rejected
+    [error] content-length-mismatch at byte 236
+             declared 42 but body is 5
+    [error] cseq-method-mismatch at byte 120
+             CSeq method INVITE != start line OPTIONS
+
+--- well-formed, with a warning
+    verdict: well-formed
+    [warning] missing-required-header at byte 0
+             request has no Max-Forwards header
+```
+
+A proxy forwards that last message. An implementation that folds warnings into
+errors drops a call it should have routed.
+
+`uri` covers the cases that separate a real parser from a regex:
+
+```
+--- sip:al%41ice@example.com
+    user     al%41ice
+    user*    alAice   (decoded once)
+
+--- sip:al%2541ice@example.com
+    user*    al%41ice   (decoded once)      <- not `alAice`: decoding is single-pass
+
+--- sip:user;par=u%40example.net@example.com
+    user     user;par=u%40example.net
+    user*    user;par=u@example.net         <- the ; belongs to the user part
+```
+
 ## Design decisions
 
 **Octets, never `String`.** SIP is an octet protocol; header values may carry octets that are

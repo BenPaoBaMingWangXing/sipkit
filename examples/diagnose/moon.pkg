@@ -1,0 +1,5 @@
+import {
+  "BenPaoBaMingWangXing/sipkit",
+}
+
+pkgtype(kind: "executable")
