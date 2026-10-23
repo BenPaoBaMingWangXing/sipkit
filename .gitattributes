@@ -1,0 +1,10 @@
+# Normalise line endings so the byte-sensitive fixtures and the generated test
+# module are identical on every clone, whatever the platform default is.
+* text=auto eol=lf
+
+*.mbt text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.sh text eol=lf

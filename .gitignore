@@ -1,0 +1,14 @@
+.DS_Store
+_build/
+target/
+target
+.mooncakes/
+.moonagent/
+
+# RFC full text is fetched at reproduce time, never committed.
+rfc4475.txt
+rfc3261.txt
+
+# Python tooling leftovers
+__pycache__/
+*.pyc
