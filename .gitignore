@@ -16,3 +16,8 @@ rfc4475_vectors.txt
 # Python tooling leftovers
 __pycache__/
 *.pyc
+
+# Coverage artefacts produced by moon coverage
+*.coverage
+bisect.coverage
+_cov*.txt

@@ -33,7 +33,6 @@ pub(all) enum DiagCode {
   MissingViaBranch
   CSeqMethodMismatch
   ContentLengthMismatch
-  NegativeContentLength
   MultipleContentLengthValues
   DuplicateSingleValueHeader
   UnsupportedVersion
@@ -56,7 +55,6 @@ pub impl Show for DiagCode with fn to_string(self : DiagCode) -> String {
     MissingViaBranch => "missing-via-branch"
     CSeqMethodMismatch => "cseq-method-mismatch"
     ContentLengthMismatch => "content-length-mismatch"
-    NegativeContentLength => "negative-content-length"
     MultipleContentLengthValues => "multiple-content-length-values"
     DuplicateSingleValueHeader => "duplicate-single-value-header"
     UnsupportedVersion => "unsupported-version"
@@ -304,20 +302,12 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
     )
   }
   for cl in cl_all {
-    let v = cl.value.view()
-    if v.length() > 0 && v[0] == MINUS {
-      // RFC 4475 §3.1.2.3 "clneg"
-      out.push(
-        err(NegativeContentLength, cl.offset, "Content-Length is negative"),
-      )
-      continue
-    }
-    let (declared, ok) = leading_decimal(v)
-    if !ok {
-      out.push(
-        err(ContentLengthMismatch, cl.offset, "Content-Length is not a decimal"),
-      )
-    } else if !(msg.trailing.length() > 0) && declared != msg.body.length() {
+    // The grammar layer already rejects a non-decimal or negative length
+    // (SyntaxKind::BadContentLength), so the only question left here is whether
+    // the declared length agrees with the framing that was actually produced.
+    // Checks that can never fire are not kept as decoration.
+    let declared = leading_decimal(cl.value.view()).0
+    if !(msg.trailing.length() > 0) && declared != msg.body.length() {
       // Declared longer than the datagram: §3.1.2.2 "clrf" style defect.
       out.push(
         err(

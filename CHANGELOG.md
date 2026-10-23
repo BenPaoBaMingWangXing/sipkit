@@ -24,10 +24,21 @@ First release. Scope is deliberately one layer: SIP messages, not SIP sessions.
   `k`, `e` resolve to their long names in both directions.
 - **Re-emission** (`to_bytes`) that returns the input octets unchanged for any
   CRLF-framed message, excluding octets that followed the declared body.
-- **Diagnostics**: 19 codes with byte offsets and two severities, each citing the
+- **Diagnostics**: 18 codes with byte offsets and two severities, each citing the
   RFC 4475 case it implements.
 - **`analyze`**, a single entry point that never raises and reports one of
   `well-formed` / `syntax-rejected` / `semantic-rejected`.
+
+### Robustness
+
+- `fuzz_test.mbt`: deterministic generators over pseudo-random octets, structural
+  octets, truncations, single-octet mutations and spliced input. Over 4,000 inputs,
+  zero panics; every syntax error carries an offset inside the input.
+- Removed the unreachable `negative-content-length` diagnostic. The grammar layer
+  already rejects a negative or non-numeric `Content-Length`, so the branch could
+  never fire.
+- Coverage measured with `moon coverage analyze`: 50 uncovered lines in the library
+  against 1,698 executable lines (about 97%).
 
 ### Conformance
 

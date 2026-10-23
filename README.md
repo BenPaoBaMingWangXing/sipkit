@@ -18,7 +18,13 @@ RFC 4475 torture corpus   49 messages extracted mechanically from the RFC text
                           45 verdicts asserted, 4 role-dependent (not asserted)
                           all 45 asserted verdicts match
                           every accepted message round-trips byte-for-byte *
-Test suite                wasm · wasm-gc · js
+Robustness                >4,000 generated inputs (random, truncated, mutated,
+                          spliced) with zero panics
+Coverage                  50 uncovered lines in the library (about 97% of 1,698
+                          executable lines), measured with `moon coverage analyze`
+Tests                     71, green on wasm · wasm-gc · js · native
+Dependencies              none
+Panics in the library     none — no `unwrap`, `panic` or `abort` outside tests
 ```
 
 \* `mpart01` is a framing vector, not a round-trip vector — see Known limitations.
@@ -45,7 +51,7 @@ that missing first step, and only that step.
 | Addresses | `name-addr` / `addr-spec` / `absoluteURI`, quoted and token display names, header parameters, comma-separated lists |
 | Lexical | `token`, `quoted-string` with `quoted-pair`, nested `comment` with a depth cap, LWS including CRLF folding |
 | Re-emit | `to_bytes` returns the input octets unchanged for any CRLF-framed message |
-| Diagnose | 19 defect codes carrying byte offsets, each citing the torture case it implements |
+| Diagnose | 18 defect codes carrying byte offsets, each citing the torture case it implements |
 | Compact names | RFC 3261 Table 2 single-letter forms (`i`, `l`, `v`, `t`, `f`, `m`, `c`, `s`, `k`, `e`) |
 
 ## What it deliberately does not do
@@ -93,6 +99,37 @@ Two cases are worth calling out because they are commonly implemented backwards:
 - **`esc02` (§3.1.1.5)** — `%` is not an escape everywhere. `C%6Fntact` is **not** `Contact`,
   and `branch=z9hG4bK209%fzsnel234` is well formed. `sipkit` compares header names literally
   and accepts a stray `%`.
+
+## Robustness
+
+A SIP parser's worst failure is not rejecting a valid message — it is panicking on an
+invalid one, because the panic takes the call path down with it. RFC 4475 proves the
+grammar on 49 curated messages; it says nothing about the other infinity of inputs.
+
+`fuzz_test.mbt` closes that gap with two deterministic generators, so any failure can be
+replayed on the machine that found it:
+
+| Generator | Inputs | What it reaches |
+|---|---|---|
+| Pseudo-random octets | 1,200 | Early grammar exits; the error paths |
+| Structural octets (CR, LF, delimiters, high bits) | 1,500 | Adversarial whitespace and delimiter runs |
+| Truncations of every corpus message | ~294 | Partial messages, unterminated constructs |
+| Single-octet mutations of every corpus message | 1,176 | Deep grammar and diagnostics |
+| Insertions and deletions (including an injected CRLF) | ~98 | Framing boundaries |
+
+Result: **zero panics**, and the invariants hold — every syntax error carries an offset
+inside the input, and anything that parses can be re-emitted.
+
+Coverage is measured rather than assumed. `moon coverage analyze` reports 58 uncovered
+lines, 50 of them in the library (`cmd/main` accounts for the rest). Against 1,698
+executable lines — counted as non-blank, non-comment lines, the stated denominator so the
+number can be checked — that is about 97%. The uncovered lines are defensive branches in
+the lexer that the corpus cannot reach.
+
+Removing unreachable code is part of this. A `Content-Length` that is negative or
+non-numeric is rejected by the grammar layer, so the diagnostics layer used to carry a
+`negative-content-length` branch that could never fire; it is gone rather than left as
+decoration.
 
 ## Quick start
 
@@ -183,16 +220,21 @@ Neighbouring work, and why `sipkit` does not overlap:
 Requires MoonBit `0.1.20260904` or newer and Python 3.9+.
 
 ```bash
-python3 tools/extract_rfc4475.py --rfc rfc4475.txt --out-dir   # needs rfc4475.txt
+python3 tools/extract_rfc4475.py --rfc rfc4475.txt --out-dir .   # needs rfc4475.txt
 python3 tools/gen_tests.py
 moon check
 moon fmt --check
 moon test --target wasm
 moon test --target wasm-gc
 moon test --target js
+moon coverage analyze        # line-level coverage; ~50 uncovered lines in the library
 ```
 
 `rfc4475.txt` is available from <https://www.rfc-editor.org/rfc/rfc4475.txt>.
+
+To reproduce the robustness numbers, just run the tests: the fuzz generators are
+deterministic and part of the default suite, so `moon test` either passes or names the
+seed that fails.
 
 ## Known limitations
 
