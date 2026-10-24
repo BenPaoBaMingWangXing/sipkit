@@ -22,7 +22,7 @@ Robustness                >4,000 generated inputs (random, truncated, mutated,
                           spliced) with zero panics
 Coverage                  50 uncovered lines in the library (about 97% of 1,698
                           executable lines), measured with `moon coverage analyze`
-Tests                     71, green on wasm · wasm-gc · js · native
+Tests                     79, green on wasm · wasm-gc · js · native
 Dependencies              none
 Panics in the library     none — no `unwrap`, `panic` or `abort` outside tests
 API documentation         112 of 112 public functions carry a doc comment
