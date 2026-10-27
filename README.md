@@ -308,17 +308,13 @@ ABNF). Everything in that scope is implemented except two tracked items with
 dates (below); everything outside it — dialog layer, transactions, authentication,
 TLS — is out of scope by design, not "not yet".
 
-**In scope, tracked, dated:**
-
-1. **Typed validation for the remaining §20 header fields.** `CSeq`,
-   `Max-Forwards`, `Retry-After`, `Via`, `Contact`, `Content-Length`, `Date`,
-   duplicate single-valued headers and required-header presence are validated
-   today. The rest of the message-layer fields (`Expires`, `Min-Expires`,
-   `Warning`, `In-Reply-To`, `Rack`/`RSeq`) are parsed but not yet
-   semantically validated — **due 2026-10-30**.
-2. **`TEXT-UTF8-TRIM` well-formedness.** `Reason-Phrase` and other TEXT fields
-   preserve octets; UTF-8 sequence validation with a diagnostic on malformed
-   input is **due 2026-10-31**.
+**In scope, complete.** Typed validation now covers every message-layer header
+field of §20 — the earlier gaps (`Expires`, `Min-Expires`, `Warning`,
+`In-Reply-To`, `Rack`/`RSeq`) report `malformed-field-value` with the field
+named, and `TEXT-UTF8-TRIM` fields (`Reason-Phrase`, `Subject`,
+`Organization`, `User-Agent`, `Server`) are checked for well-formed UTF-8
+(`invalid-utf8`: no overlong encodings, no surrogate halves, nothing beyond
+U+10FFFF). 85 tests, zero warnings.
 
 **Completed after the first application review** (previously listed here as
 limitations):
