@@ -337,3 +337,58 @@ pub fn contains_ignore_case(hay : BytesView, needle : BytesView) -> Bool {
   }
   false
 }
+
+///|
+/// Strict UTF-8 well-formedness over a byte range: no overlong encodings, no
+/// UTF-16 surrogate halves, no code points beyond U+10FFFF. This is what RFC
+/// 3261 §25.1 `TEXT-UTF8-TRIM` demands of free-text fields.
+pub fn is_valid_utf8(v : BytesView) -> Bool {
+  let n = v.length()
+  let mut i = 0
+  while i < n {
+    let b = v[i].to_int()
+    if b < 0x80 {
+      i = i + 1
+      continue
+    }
+    // Continuation bytes are 0x80..0xBF.
+    let cont = fn(v : BytesView, k : Int32) -> Bool {
+      (v[k].to_int() & 0xC0) == 0x80
+    }
+    if b >= 0xC2 && b <= 0xDF {
+      // 2-byte sequence; C1 (0xC0/0xC1) would be overlong.
+      if i + 2 > n || !cont(v, i + 1) {
+        return false
+      }
+      i = i + 2
+    } else if b >= 0xE0 && b <= 0xEF {
+      if i + 3 > n || !cont(v, i + 1) || !cont(v, i + 2) {
+        return false
+      }
+      // E0 must be followed by A0..BF (no overlong), ED by 80..9F (no surrogates).
+      if b == 0xE0 && v[i + 1].to_int() < 0xA0 {
+        return false
+      }
+      if b == 0xED && v[i + 1].to_int() >= 0xA0 {
+        return false
+      }
+      i = i + 3
+    } else if b >= 0xF0 && b <= 0xF4 {
+      if i + 4 > n || !cont(v, i + 1) || !cont(v, i + 2) || !cont(v, i + 3) {
+        return false
+      }
+      // F0 must be followed by 90..BF (no overlong), F4 by 80..8F (beyond U+10FFFF).
+      if b == 0xF0 && v[i + 1].to_int() < 0x90 {
+        return false
+      }
+      if b == 0xF4 && v[i + 1].to_int() >= 0x90 {
+        return false
+      }
+      i = i + 4
+    } else {
+      // 0x80..0xC1 and 0xF5..0xFF cannot start any well-formed sequence.
+      return false
+    }
+  }
+  true
+}

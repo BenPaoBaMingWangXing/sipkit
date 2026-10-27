@@ -49,6 +49,37 @@ pub(all) enum DiagCode {
   UnsupportedExtension
   EscapedHeadersInRequestUri
   MalformedDate
+  MalformedFieldValue
+  InvalidUtf8
+}
+
+///|
+/// Structural equality by discriminant. Derive(Eq) does not take effect on
+/// this toolchain, so the comparison is written out variant by variant --
+/// verbose, but nothing left to go subtly wrong.
+impl Eq for DiagCode with fn equal(self : DiagCode, that : DiagCode) -> Bool {
+  (self is MissingRequiredHeader && that is MissingRequiredHeader) ||
+  (self is MissingViaBranch && that is MissingViaBranch) ||
+  (self is CSeqMethodMismatch && that is CSeqMethodMismatch) ||
+  (self is ContentLengthMismatch && that is ContentLengthMismatch) ||
+  (self is MultipleContentLengthValues && that is MultipleContentLengthValues) ||
+  (self is DuplicateSingleValueHeader && that is DuplicateSingleValueHeader) ||
+  (self is UnsupportedVersion && that is UnsupportedVersion) ||
+  (self is StatusCodeOutOfRange && that is StatusCodeOutOfRange) ||
+  (self is ScalarOutOfRange && that is ScalarOutOfRange) ||
+  (self is UnknownRequestUriScheme && that is UnknownRequestUriScheme) ||
+  (self is TrailingOctets && that is TrailingOctets) ||
+  (self is ExtraneousSeparator && that is ExtraneousSeparator) ||
+  (self is UnbracketedUriWithHeaders && that is UnbracketedUriWithHeaders) ||
+  (
+    self is MissingContactInDialogRequest &&
+    that is MissingContactInDialogRequest
+  ) ||
+  (self is UnsupportedExtension && that is UnsupportedExtension) ||
+  (self is EscapedHeadersInRequestUri && that is EscapedHeadersInRequestUri) ||
+  (self is MalformedDate && that is MalformedDate) ||
+  (self is MalformedFieldValue && that is MalformedFieldValue) ||
+  (self is InvalidUtf8 && that is InvalidUtf8)
 }
 
 ///|
@@ -72,6 +103,8 @@ pub impl Show for DiagCode with fn to_string(self : DiagCode) -> String {
     UnbracketedUriWithHeaders => "unbracketed-uri-with-headers"
     MissingContactInDialogRequest => "missing-contact-in-dialog-request"
     UnsupportedExtension => "unsupported-extension"
+    MalformedFieldValue => "malformed-field-value"
+    InvalidUtf8 => "invalid-utf8"
     EscapedHeadersInRequestUri => "escaped-headers-in-request-uri"
     MalformedDate => "malformed-date"
   }
@@ -572,5 +605,278 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
     }
     Response(_) => ()
   }
+  // --- structural syntax for the remaining §20 fields + TEXT-UTF8 checks ---
+  check_field_syntax(msg, out)
   out
+}
+
+///|
+/// Splits a header value on `sep` octets that live outside quoted strings, so a
+/// comma inside `warn-text` does not split a Warning into two.
+fn split_outside_quotes(v : BytesView, sep : Byte) -> Array[BytesView] {
+  let out : Array[BytesView] = []
+  let mut start = 0
+  let mut in_quotes = false
+  let mut i = 0
+  while i < v.length() {
+    let b = v[i]
+    if in_quotes {
+      if b == BSLASH {
+        i = i + 2
+        continue
+      }
+      if b == DQUOTE {
+        in_quotes = false
+      }
+      i = i + 1
+    } else if b == DQUOTE {
+      in_quotes = true
+      i = i + 1
+    } else if b == sep {
+      out.push(v.exact_view(start~, end=i))
+      start = i + 1
+      i = i + 1
+    } else {
+      i = i + 1
+    }
+  }
+  out.push(v.exact_view(start~, end=v.length()))
+  out
+}
+
+///|
+/// True when every octet in the range is a decimal digit and the range is not
+/// empty.
+fn all_digits(v : BytesView) -> Bool {
+  if v.length() == 0 {
+    return false
+  }
+  for i in 0..<v.length() {
+    if !is_digit(v[i]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+/// Structural checks for the message-layer header fields of §20 that the
+/// targeted rules above do not already cover. Every failure is a
+/// `MalformedFieldValue` error naming the field; a field whose value is free
+/// text additionally gets an `InvalidUtf8` check, because RFC 3261 §25.1
+/// `TEXT-UTF8-TRIM` requires well-formed UTF-8.
+fn check_field_syntax(msg : SipMessage, out : Array[Diagnostic]) -> Unit {
+  // Warning (§20.47): 1#warning-value, warn-code = 3DIGIT, values 100..299.
+  for w in msg.all_headers("Warning") {
+    for part in split_outside_quotes(w.value.exact_view(), COMMA) {
+      let t = trim_ows(part)
+      if t.length() < 5 ||
+        !all_digits(t.exact_view(start=0, end=3)) ||
+        t[3] != SP {
+        out.push(
+          err(
+            MalformedFieldValue,
+            w.offset,
+            "Warning: expected 3DIGIT SP warn-agent SP warn-text",
+          ),
+        )
+        continue
+      }
+      // The grammar constrains warn-code to 3DIGIT (checked above); the 1xx/2xx
+      // semantics are descriptive, not a syntactic constraint -- scalarlg's
+      // four-digit 1812 is caught by the length check alone.
+    }
+  }
+  // Expires / Min-Expires (§20.19, §20.23): delta-seconds or SIP-date.
+  for hn in ["Expires", "Min-Expires"] {
+    for f in msg.all_headers(hn) {
+      let v = trim_ows(f.value.exact_view())
+      if v.length() == 0 {
+        out.push(err(MalformedFieldValue, f.offset, "\{hn}: empty value"))
+        continue
+      }
+      if all_digits(v) {
+        let val = leading_decimal(v).0
+        if val >= SATURATED {
+          out.push(err(ScalarOutOfRange, f.offset, "\{hn} outside 0..2^32-1"))
+        }
+      } else if !is_sip_date(v) {
+        out.push(
+          err(
+            MalformedFieldValue,
+            f.offset,
+            "\{hn}: neither delta-seconds nor SIP-date",
+          ),
+        )
+      }
+    }
+  }
+  // RSeq (RFC 3262 §7): 1*DIGIT below 2^31.
+  for f in msg.all_headers("RSeq") {
+    let v = trim_ows(f.value.exact_view())
+    if !all_digits(v) || v.length() > 10 {
+      out.push(err(MalformedFieldValue, f.offset, "RSeq must be 1*DIGIT"))
+    }
+    ignore(leading_decimal(v))
+  }
+  // Rack (RFC 3262 §7): response-num SP sequence SP method.
+  for f in msg.all_headers("Rack") {
+    let parts = split_outside_quotes(trim_ows(f.value.exact_view()), SP)
+    if parts.length() != 3 ||
+      !all_digits(parts[0]) ||
+      !all_digits(parts[1]) ||
+      parts[2].length() == 0 {
+      out.push(
+        err(
+          MalformedFieldValue,
+          f.offset,
+          "Rack: expected response-num SP sequence SP method",
+        ),
+      )
+    }
+  }
+  // Priority (§20.26): the four standard values or an extension token.
+  for f in msg.all_headers("Priority") {
+    let v = trim_ows(f.value.exact_view())
+    let head = if contains_ignore_case(v, b";") {
+      let mut cut = v.length()
+      for i in 0..<v.length() {
+        if v[i] == SEMI {
+          cut = i
+          break
+        }
+      }
+      v.exact_view(start=0, end=cut)
+    } else {
+      v
+    }
+    let known = ["emergency", "urgent", "normal", "non-urgent"]
+    let mut ok = head.length() > 0
+    if ok {
+      for i in 0..<head.length() {
+        if !is_token_char(head[i]) {
+          ok = false
+          break
+        }
+      }
+    }
+    if !ok {
+      out.push(err(MalformedFieldValue, f.offset, "Priority: not a token"))
+    }
+    ignore(known)
+  }
+  // Timestamp (§20.44): 1*DIGIT ["." 1*DIGIT] [LWS delay].
+  for f in msg.all_headers("Timestamp") {
+    let v = trim_ows(f.value.exact_view())
+    let tokens = split_outside_quotes(v, SP)
+    if tokens.length() < 1 || tokens.length() > 2 {
+      out.push(
+        err(
+          MalformedFieldValue,
+          f.offset,
+          "Timestamp: expected time [SP delay]",
+        ),
+      )
+      continue
+    }
+    for t in tokens {
+      // digits [. digits]
+      let ok = (fn() {
+        let mut seen_dot = false
+        let mut digits = 0
+        for i in 0..<t.length() {
+          let b = t[i]
+          if b == DOT {
+            if seen_dot || digits == 0 {
+              return false
+            }
+            seen_dot = true
+          } else if is_digit(b) {
+            digits = digits + 1
+          } else {
+            return false
+          }
+        }
+        digits > 0
+      })()
+      if !ok {
+        out.push(
+          err(MalformedFieldValue, f.offset, "Timestamp: bad time or delay"),
+        )
+        break
+      }
+    }
+  }
+  // MIME-Version (§20.24): 1*DIGIT "." 1*DIGIT.
+  for f in msg.all_headers("MIME-Version") {
+    let v = trim_ows(f.value.exact_view())
+    let dot = (fn() {
+      for i in 0..<v.length() {
+        if v[i] == DOT {
+          return i
+        }
+      }
+      -1
+    })()
+    let ok = dot > 0 &&
+      dot < v.length() - 1 &&
+      all_digits(v.exact_view(start=0, end=dot)) &&
+      all_digits(v.exact_view(start=dot + 1, end=v.length()))
+    if !ok {
+      out.push(
+        err(
+          MalformedFieldValue,
+          f.offset,
+          "MIME-Version: expected 1*DIGIT \".\" 1*DIGIT",
+        ),
+      )
+    }
+  }
+  // Content-Type (§20.15): type "/" subtype, both tokens.
+  for f in msg.all_headers("Content-Type") {
+    let v = trim_ows(f.value.exact_view())
+    let slash = (fn() {
+      for i in 0..<v.length() {
+        if v[i] == SLASH {
+          return i
+        }
+      }
+      -1
+    })()
+    let ok = slash > 0 &&
+      slash < v.length() - 1 &&
+      is_token_char(v[0]) &&
+      is_token_char(v[slash - 1]) &&
+      is_token_char(v[slash + 1])
+    if !ok {
+      out.push(
+        err(
+          MalformedFieldValue,
+          f.offset,
+          "Content-Type: expected type \"/\" subtype",
+        ),
+      )
+    }
+  }
+  // In-Reply-To (§20.14): at least one Call-ID.
+  for f in msg.all_headers("In-Reply-To") {
+    if trim_ows(f.value.exact_view()).length() == 0 {
+      out.push(err(MalformedFieldValue, f.offset, "In-Reply-To: empty"))
+    }
+  }
+  // TEXT-UTF8-TRIM fields (§25.1): well-formed UTF-8 required.
+  match msg.start_line() {
+    Response(sl) =>
+      if !is_valid_utf8(sl.reason().exact_view()) {
+        out.push(err(InvalidUtf8, 0, "Reason-Phrase is not well-formed UTF-8"))
+      }
+    Request(_) => ()
+  }
+  for hn in ["Subject", "Organization", "User-Agent", "Server"] {
+    for f in msg.all_headers(hn) {
+      if !is_valid_utf8(f.value.exact_view()) {
+        out.push(err(InvalidUtf8, f.offset, "\{hn} is not well-formed UTF-8"))
+      }
+    }
+  }
 }

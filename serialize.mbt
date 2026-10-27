@@ -118,9 +118,8 @@ pub fn Analysis::verdict(self : Analysis) -> Verdict {
 /// True when at least one diagnostic carries `code`. Comparison goes through the
 /// stable string form so the enum needs no hand-written `Eq` instance.
 pub fn Analysis::has_code(self : Analysis, code : DiagCode) -> Bool {
-  let want = code.to_string()
-  for d in self.diagnostics {
-    if d.code.to_string() == want {
+  for d in self.diagnostics() {
+    if d.code() == code {
       return true
     }
   }

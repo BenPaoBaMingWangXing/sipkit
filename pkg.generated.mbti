@@ -96,6 +96,8 @@ pub fn is_token_char(Byte) -> Bool
 
 pub fn is_unreserved(Byte) -> Bool
 
+pub fn is_valid_utf8(BytesView) -> Bool
+
 pub fn looks_like_sip_uri(Cursor) -> Bool
 
 pub fn lower_ascii(Byte) -> Byte
@@ -191,6 +193,8 @@ pub(all) enum DiagCode {
   UnsupportedExtension
   EscapedHeadersInRequestUri
   MalformedDate
+  MalformedFieldValue
+  InvalidUtf8
 }
 pub fn DiagCode::output(Self, &Logger) -> Unit
 pub fn DiagCode::to_string(Self) -> String
