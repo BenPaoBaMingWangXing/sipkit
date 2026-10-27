@@ -21,3 +21,5 @@ __pycache__/
 *.coverage
 bisect.coverage
 _cov*.txt
+# Generated interface files
+*.generated.mbti
