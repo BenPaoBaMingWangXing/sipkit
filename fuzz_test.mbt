@@ -3,7 +3,7 @@
 // A parser's worst failure is not "rejected a valid message", it is "panicked on
 // invalid input". A panic in a signalling stack takes down the media path behind
 // it, so the property worth proving is total: for ANY octet string,
-// `analyze` returns, and if it parses, `to_bytes` returns too.
+// `@sipkit.analyze` returns, and if it parses, `@sipkit.to_bytes` returns too.
 //
 // Two generators, both deterministic so a failure is reproducible:
 //
@@ -18,7 +18,7 @@
 ///|
 /// Deterministic, overflow-free byte generator. Fuzz quality does not need a good
 /// PRNG; it needs the same sequence on every machine so a failure can be replayed.
-fn prng_byte(seed : Int, i : Int) -> Byte {
+fn prng_byte(seed : Int32, i : Int32) -> Byte {
   let mixed = seed % 251 * 31 + i % 241 * 17 + (seed ^ i)
   let v = mixed % 256
   if v < 0 {
@@ -31,7 +31,7 @@ fn prng_byte(seed : Int, i : Int) -> Byte {
 ///|
 /// Same generator, biased towards structurally interesting octets: CR, LF, SP,
 /// tabs, delimiters and a few high bits.
-fn prng_structural(seed : Int, i : Int) -> Byte {
+fn prng_structural(seed : Int32, i : Int32) -> Byte {
   let table : Array[Byte] = [
     b'\r', b'\n', b' ', b'\t', b':', b';', b',', b'@', b'<', b'>', b'"', b'\\', b'(',
     b')', b'%', b'?', b'=', b'/', b'[', b']', b'*', b'.', b'-', b'0', b'9', b'a',
@@ -48,12 +48,12 @@ test "fuzz: random octets never panic" {
   for seed in 0..<1200 {
     let len = seed % 160
     let buf = Bytes::makei(len, fn(i) { prng_byte(seed, i) })
-    let a = analyze(buf)
+    let a = @sipkit.analyze(buf)
     match a.message() {
       Some(msg) => {
         parsed = parsed + 1
         // Re-emission must be total for anything that parsed.
-        ignore(to_bytes(msg))
+        ignore(@sipkit.to_bytes(msg))
         ignore(msg.headers().length())
         ignore(msg.body().length())
         ignore(msg.trailing().length())
@@ -66,7 +66,10 @@ test "fuzz: random octets never panic" {
             assert_true(at >= 0)
             assert_true(at <= buf.length())
           }
-          None => fail("analyze returned neither a message nor a syntax error")
+          None =>
+            fail(
+              "@sipkit.analyze returned neither a message nor a syntax error",
+            )
         }
     }
   }
@@ -80,14 +83,14 @@ test "fuzz: structural octets never panic" {
   for seed in 0..<1500 {
     let len = seed % 96
     let buf = Bytes::makei(len, fn(i) { prng_structural(seed, i) })
-    let a = analyze(buf)
+    let a = @sipkit.analyze(buf)
     match a.message() {
       Some(msg) => {
-        let rebuilt = to_bytes(msg)
+        let rebuilt = @sipkit.to_bytes(msg)
         // Rebuilt output must itself re-parse or be explainable; at minimum it
         // must be produced without panicking and stay within a sane bound.
         assert_true(rebuilt.length() <= buf.length() + 8)
-        ignore(analyze(rebuilt))
+        ignore(@sipkit.analyze(rebuilt))
       }
       None => ()
     }
@@ -97,7 +100,7 @@ test "fuzz: structural octets never panic" {
 ///|
 test "fuzz: truncated torture messages never panic" {
   for v in vectors {
-    let base = bytes_from_hex(v.hex)
+    let base = @sipkit.bytes_from_hex(v.hex)
     if base.length() < 2 {
       continue
     }
@@ -113,8 +116,8 @@ test "fuzz: truncated torture messages never panic" {
       if cut <= 0 || cut >= base.length() {
         continue
       }
-      let trimmed = bytes_of_view(base.view(start=0, end=cut))
-      ignore(analyze(trimmed))
+      let trimmed = @sipkit.bytes_of_view(base.exact_view(start=0, end=cut))
+      ignore(@sipkit.analyze(trimmed))
     }
   }
 }
@@ -122,7 +125,7 @@ test "fuzz: truncated torture messages never panic" {
 ///|
 test "fuzz: byte mutations never panic and stay bounded" {
   for v in vectors {
-    let base = bytes_from_hex(v.hex)
+    let base = @sipkit.bytes_from_hex(v.hex)
     if base.length() < 4 {
       continue
     }
@@ -133,9 +136,9 @@ test "fuzz: byte mutations never panic and stay bounded" {
       let mask = (k * 37 % 254 + 1).to_byte()
       mutated[pos] = mutated[pos] ^ mask
       let buf = Bytes::from_array(mutated)
-      let a = analyze(buf)
+      let a = @sipkit.analyze(buf)
       match a.message() {
-        Some(msg) => ignore(to_bytes(msg))
+        Some(msg) => ignore(@sipkit.to_bytes(msg))
         None => ()
       }
     }
@@ -145,7 +148,7 @@ test "fuzz: byte mutations never panic and stay bounded" {
 ///|
 test "fuzz: insertions and deletions keep the parser total" {
   for v in vectors {
-    let base = bytes_from_hex(v.hex)
+    let base = @sipkit.bytes_from_hex(v.hex)
     if base.length() < 8 {
       continue
     }
@@ -158,7 +161,7 @@ test "fuzz: insertions and deletions keep the parser total" {
         rebuilt.push(kept[i])
       }
     }
-    ignore(analyze(Bytes::from_array(rebuilt)))
+    ignore(@sipkit.analyze(Bytes::from_array(rebuilt)))
 
     // Insert a CRLF, which is the most likely octet pair to break framing.
     let injected : Array[Byte] = []
@@ -169,6 +172,6 @@ test "fuzz: insertions and deletions keep the parser total" {
         injected.push(b'\n')
       }
     }
-    ignore(analyze(Bytes::from_array(injected)))
+    ignore(@sipkit.analyze(Bytes::from_array(injected)))
   }
 }

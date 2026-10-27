@@ -12,17 +12,20 @@ let good_response : Bytes = b"SIP/2.0 200 OK\r\nVia: SIP/2.0/UDP 192.0.2.15;bran
 
 ///|
 test "a well-formed INVITE parses, diagnoses clean, and round-trips" {
-  let a = analyze(good_invite)
+  let a = @sipkit.analyze(good_invite)
   assert_eq(a.verdict().to_string(), "well-formed")
   let msg = a.message().unwrap()
-  assert_eq(ascii_of(msg.verb().unwrap().view()), "INVITE")
+  assert_eq(@sipkit.ascii_of(msg.verb().unwrap().exact_view()), "INVITE")
   // Byte-exact round-trip: the property the conformance suite relies on.
-  assert_eq(ascii_of(to_bytes(msg).view()), ascii_of(good_invite.view()))
+  assert_eq(
+    @sipkit.ascii_of(@sipkit.to_bytes(msg).exact_view()),
+    @sipkit.ascii_of(good_invite.exact_view()),
+  )
 }
 
 ///|
 test "a well-formed response parses with its status code" {
-  let a = analyze(good_response)
+  let a = @sipkit.analyze(good_response)
   assert_eq(a.verdict().to_string(), "well-formed")
   let msg = a.message().unwrap()
   assert_eq(msg.status_code().unwrap(), 200)
@@ -32,7 +35,7 @@ test "a well-formed response parses with its status code" {
 test "header field names are matched case-insensitively but never unescaped" {
   // RFC 4475 3.1.1.5: `C%6Fntact` is a different field from `Contact`.
   let raw : Bytes = b"INVITE sip:user@example.com SIP/2.0\r\nTo: sip:a@b\r\nFrom: sip:c@d;tag=1\r\nMax-Forwards: 70\r\nCall-ID: esc.1\r\nCSeq: 1 INVITE\r\nVia: SIP/2.0/UDP h;branch=z9hG4bK1\r\nContact: <sip:x@y>\r\nC%6Fntact: <sip:z@w>\r\nContent-Length: 0\r\n\r\n"
-  let msg = analyze(raw).message().unwrap()
+  let msg = @sipkit.analyze(raw).message().unwrap()
   assert_eq(msg.all_headers("Contact").length(), 1)
   assert_eq(msg.all_headers("C%6Fntact").length(), 1)
 }
@@ -40,9 +43,9 @@ test "header field names are matched case-insensitively but never unescaped" {
 ///|
 test "Content-Length larger than the datagram is reported, not thrown" {
   let raw : Bytes = b"INVITE sip:user@example.com SIP/2.0\r\nTo: sip:a@b\r\nFrom: sip:c@d;tag=1\r\nMax-Forwards: 70\r\nCall-ID: cl.1\r\nCSeq: 1 INVITE\r\nVia: SIP/2.0/UDP h;branch=z9hG4bK1\r\nContent-Length: 999\r\n\r\n"
-  let a = analyze(raw)
+  let a = @sipkit.analyze(raw)
   assert_eq(a.verdict().to_string(), "semantic-rejected")
-  assert_true(a.has_code(DiagCode::ContentLengthMismatch))
+  assert_true(a.has_code(@sipkit.DiagCode::ContentLengthMismatch))
 }
 
 ///|
@@ -51,7 +54,7 @@ test "a negative Content-Length is rejected by the grammar" {
   // RFC 4475 §3.1.2.3 ("ncl") requires the receiver not to break; returning a
   // located syntax error is how we satisfy that.
   let raw : Bytes = b"INVITE sip:user@example.com SIP/2.0\r\nTo: sip:a@b\r\nFrom: sip:c@d;tag=1\r\nMax-Forwards: 70\r\nCall-ID: neg.1\r\nCSeq: 1 INVITE\r\nVia: SIP/2.0/UDP h;branch=z9hG4bK1\r\nContent-Length: -1\r\n\r\n"
-  let a = analyze(raw)
+  let a = @sipkit.analyze(raw)
   assert_eq(a.verdict().to_string(), "syntax-rejected")
   match a.syntax() {
     Some(pair) => assert_eq(pair.0.to_string(), "malformed Content-Length")
@@ -65,17 +68,17 @@ test "a second message in the same datagram is surfaced, not swallowed" {
   // the rest of the datagram must be visible to the caller.
   let raw : Bytes = b"REGISTER sip:example.com SIP/2.0\r\nTo: sip:a@b\r\nFrom: sip:c@d;tag=1\r\nMax-Forwards: 8\r\nCall-ID: db.1\r\nCSeq: 8 REGISTER\r\nVia: SIP/2.0/UDP h;branch=z9hG4bK1\r\nContent-Length: 0\r\n\r\n" +
     b"INVITE sip:x@y SIP/2.0\r\n\r\n"
-  let a = analyze(raw)
+  let a = @sipkit.analyze(raw)
   let msg = a.message().unwrap()
   assert_eq(msg.trailing().length(), 26)
-  assert_true(a.has_code(DiagCode::TrailingOctets))
+  assert_true(a.has_code(@sipkit.DiagCode::TrailingOctets))
 }
 
 ///|
 test "compact header forms are understood" {
   // RFC 3261 Table 2: `i` is Call-ID, `l` is Content-Length, `v` is Via.
   let raw : Bytes = b"OPTIONS sip:user@example.com SIP/2.0\r\nv: SIP/2.0/UDP h;branch=z9hG4bK1\r\nt: sip:a@b\r\nf: sip:c@d;tag=1\r\nl: 0\r\ni: compact.1\r\nCSeq: 1 OPTIONS\r\nMax-Forwards: 70\r\n\r\n"
-  let a = analyze(raw)
+  let a = @sipkit.analyze(raw)
   assert_eq(a.verdict().to_string(), "well-formed")
   let msg = a.message().unwrap()
   assert_eq(msg.all_headers("Call-ID").length(), 1)
@@ -86,19 +89,19 @@ test "compact header forms are understood" {
 test "a Via without a branch is tolerated but reported" {
   // RFC 4475 §3.4.1 (inv2543) is well formed; §3.2.1 (badbranch) is not.
   let legacy : Bytes = b"OPTIONS sip:user@example.com SIP/2.0\r\nTo: sip:a@b\r\nFrom: sip:c@d;tag=1\r\nMax-Forwards: 70\r\nCall-ID: b1.1\r\nCSeq: 1 OPTIONS\r\nVia: SIP/2.0/UDP h\r\nContent-Length: 0\r\n\r\n"
-  let a = analyze(legacy)
+  let a = @sipkit.analyze(legacy)
   assert_eq(a.verdict().to_string(), "well-formed")
-  assert_true(a.has_code(DiagCode::MissingViaBranch))
+  assert_true(a.has_code(@sipkit.DiagCode::MissingViaBranch))
 
   let empty_id : Bytes = b"OPTIONS sip:user@example.com SIP/2.0\r\nTo: sip:a@b\r\nFrom: sip:c@d;tag=1\r\nMax-Forwards: 70\r\nCall-ID: b2.1\r\nCSeq: 1 OPTIONS\r\nVia: SIP/2.0/UDP h;branch=z9hG4bK\r\nContent-Length: 0\r\n\r\n"
-  let b = analyze(empty_id)
+  let b = @sipkit.analyze(empty_id)
   assert_eq(b.verdict().to_string(), "semantic-rejected")
-  assert_true(b.has_code(DiagCode::MissingViaBranch))
+  assert_true(b.has_code(@sipkit.DiagCode::MissingViaBranch))
 }
 
 ///|
 test "empty input is rejected with a located syntax error" {
-  let a = analyze(b"")
+  let a = @sipkit.analyze(b"")
   assert_eq(a.verdict().to_string(), "syntax-rejected")
   match a.syntax() {
     Some(pair) => {
@@ -112,27 +115,39 @@ test "empty input is rejected with a located syntax error" {
 
 ///|
 test "SIP URIs parse into their components" {
-  let c = Cursor::from_bytes(
+  let c = @sipkit.Cursor::from_bytes(
     b"sip:alice:secret@example.com:5060;transport=tcp;lr?subject=hi",
   )
-  let u = parse_sip_uri(c)
-  assert_eq(ascii_of(u.user().unwrap().view()), "alice")
-  assert_eq(ascii_of(u.password().unwrap().view()), "secret")
+  let u = @sipkit.parse_sip_uri(c)
+  assert_eq(@sipkit.ascii_of(u.user().unwrap().exact_view()), "alice")
+  assert_eq(@sipkit.ascii_of(u.password().unwrap().exact_view()), "secret")
   assert_eq(u.host().to_string(), "example.com")
   assert_eq(u.port().unwrap(), 5060)
   assert_true(u.param("lr") is Some(_))
   assert_eq(u.headers().length(), 1)
-  assert_eq(ascii_of(u.headers()[0].name().view()), "subject")
+  assert_eq(@sipkit.ascii_of(u.headers()[0].name().exact_view()), "subject")
 }
 
 ///|
 test "percent escapes decode exactly once and never recursively" {
   // RFC 4475 3.1.1.3: value%41 is valueA, and unescaping is not recursive.
-  assert_eq(ascii_of(unescape_once(b"value%41".view()).view()), "valueA")
-  assert_eq(ascii_of(unescape_once(b"value%2541".view()).view()), "value%41")
+  assert_eq(
+    @sipkit.ascii_of(
+      @sipkit.unescape_once(b"value%41".exact_view()).exact_view(),
+    ),
+    "valueA",
+  )
+  assert_eq(
+    @sipkit.ascii_of(
+      @sipkit.unescape_once(b"value%2541".exact_view()).exact_view(),
+    ),
+    "value%41",
+  )
   // A `%` that is not an escape survives literally (RFC 4475 3.1.1.5).
   assert_eq(
-    ascii_of(unescape_once(b"z9hG4bK209%fz".view()).view()),
+    @sipkit.ascii_of(
+      @sipkit.unescape_once(b"z9hG4bK209%fz".exact_view()).exact_view(),
+    ),
     "z9hG4bK209%fz",
   )
 }
@@ -140,17 +155,22 @@ test "percent escapes decode exactly once and never recursively" {
 ///|
 test "a display name may sit directly against < without LWS" {
   // RFC 4475 3.1.1.6 (lwsdisp) must be accepted.
-  let c = Cursor::from_bytes(b"caller<sip:caller@example.com>;tag=323")
-  let a = parse_name_addr(c)
-  assert_eq(ascii_of(a.display().unwrap().view()), "caller")
-  assert_eq(ascii_of(a.tag().unwrap().view()), "323")
+  let c = @sipkit.Cursor::from_bytes(b"caller<sip:caller@example.com>;tag=323")
+  let a = @sipkit.parse_name_addr(c)
+  assert_eq(@sipkit.ascii_of(a.display().unwrap().exact_view()), "caller")
+  assert_eq(@sipkit.ascii_of(a.tag().unwrap().exact_view()), "323")
 }
 
 ///|
 test "a quoted display name keeps its semantic value and its quoting flag" {
-  let c = Cursor::from_bytes(b"\"Bell, Alexander\" <sip:a.g.bell@example.com>")
-  let a = parse_name_addr(c)
-  assert_eq(ascii_of(a.display().unwrap().view()), "Bell, Alexander")
+  let c = @sipkit.Cursor::from_bytes(
+    b"\"Bell, Alexander\" <sip:a.g.bell@example.com>",
+  )
+  let a = @sipkit.parse_name_addr(c)
+  assert_eq(
+    @sipkit.ascii_of(a.display().unwrap().exact_view()),
+    "Bell, Alexander",
+  )
   assert_true(a.display_quoted())
 }
 
@@ -158,14 +178,18 @@ test "a quoted display name keeps its semantic value and its quoting flag" {
 test "an unquoted display name containing a comma is rejected" {
   // RFC 4475 3.1.2.15 (baddn) is malformed.
   let raw : Bytes = b"OPTIONS sip:t.watson@example.org SIP/2.0\r\nFrom: Bell, Alexander <sip:a.g.bell@example.com>;tag=43\r\nTo: sip:t.watson@example.org\r\nMax-Forwards: 70\r\nCall-ID: baddn.1\r\nCSeq: 1 OPTIONS\r\nVia: SIP/2.0/UDP c;branch=z9hG4bK1\r\nContent-Length: 0\r\n\r\n"
-  assert_eq(analyze(raw).verdict().to_string(), "syntax-rejected")
+  assert_eq(@sipkit.analyze(raw).verdict().to_string(), "syntax-rejected")
 }
 
 ///|
 test "whitespace inside the angle brackets is rejected" {
   // RFC 4475 3.1.2.14 (badaspec) is malformed.
-  let c = Cursor::from_bytes(b"\"Watson, Thomas\" < sip:t.watson@example.org >")
-  let r : Result[NameAddr, SipError] = Ok(parse_name_addr(c)) catch {
+  let c = @sipkit.Cursor::from_bytes(
+    b"\"Watson, Thomas\" < sip:t.watson@example.org >",
+  )
+  let r : Result[@sipkit.NameAddr, @sipkit.SipError] = Ok(
+    @sipkit.parse_name_addr(c),
+  ) catch {
     e => Err(e)
   }
   assert_true(r is Err(_))

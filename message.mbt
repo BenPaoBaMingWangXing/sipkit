@@ -16,7 +16,7 @@
 
 ///|
 /// Sentinel used when a decimal run exceeds `Int` range.
-pub const SATURATED : Int = 2147483647
+pub const SATURATED : Int32 = 2147483647
 
 ///|
 /// A request start line.
@@ -49,7 +49,7 @@ pub fn RequestLine::version(self : RequestLine) -> Bytes {
 /// A response start line.
 pub struct StatusLine {
   version : Bytes
-  code : Int
+  code : Int32
   reason : Bytes
   raw : Bytes
 }
@@ -62,7 +62,7 @@ pub fn StatusLine::version(self : StatusLine) -> Bytes {
 
 ///|
 /// The numeric status code, saturated when the digits overflow.
-pub fn StatusLine::code(self : StatusLine) -> Int {
+pub fn StatusLine::code(self : StatusLine) -> Int32 {
   self.code
 }
 
@@ -82,10 +82,13 @@ pub enum RequestUri {
 }
 
 ///|
+pub extend RequestUri with Show::{to_string, output}
+
+///|
 pub impl Show for RequestUri with fn to_string(self : RequestUri) -> String {
   match self {
     Parsed(u) => u.raw().to_string()
-    Other(raw) => ascii_of(raw.view())
+    Other(raw) => ascii_of(raw.exact_view())
   }
 }
 
@@ -101,7 +104,7 @@ pub struct SipMessage {
   headers : Array[HeaderField]
   body : Bytes
   trailing : Bytes
-  consumed : Int
+  consumed : Int32
 }
 
 ///|
@@ -130,7 +133,7 @@ pub fn SipMessage::trailing(self : SipMessage) -> Bytes {
 
 ///|
 /// Number of octets belonging to this message.
-pub fn SipMessage::consumed(self : SipMessage) -> Int {
+pub fn SipMessage::consumed(self : SipMessage) -> Int32 {
   self.consumed
 }
 
@@ -145,7 +148,7 @@ pub fn SipMessage::verb(self : SipMessage) -> Bytes? {
 
 ///|
 /// The status code, or `None` for a request.
-pub fn SipMessage::status_code(self : SipMessage) -> Int? {
+pub fn SipMessage::status_code(self : SipMessage) -> Int32? {
   match self.start {
     Request(_) => None
     Response(r) => Some(r.code)
@@ -182,7 +185,7 @@ pub fn SipMessage::header(self : SipMessage, name : String) -> HeaderField? {
 ///|
 /// Reads a decimal run, saturating instead of overflowing. Returns the value and
 /// the octet count consumed.
-fn read_decimal(c : Cursor) -> (Int, Int) {
+fn read_decimal(c : Cursor) -> (Int32, Int32) {
   let start = c.position()
   let mut v = 0
   let mut overflow = false
@@ -228,7 +231,7 @@ fn parse_version(c : Cursor) -> Bytes raise SipError {
 ///|
 /// True when the version octets are exactly `SIP/2.0` ignoring case.
 pub fn is_sip_2_0(v : Bytes) -> Bool {
-  bytes_eq_ignore_ascii_case(v.view(), b"SIP/2.0".view())
+  bytes_eq_ignore_ascii_case(v.exact_view(), b"SIP/2.0".exact_view())
 }
 
 ///|
@@ -291,7 +294,7 @@ fn parse_request_line(c : Cursor) -> RequestLine raise SipError {
     raise Syntax(IllegalOctet, ustart)
   }
   let uend = c.position()
-  let uri = parse_request_uri(c.src.view(start=ustart, end=uend))
+  let uri = parse_request_uri(c.src.exact_view(start=ustart, end=uend))
   if c.eof() || c.src[c.pos] != SP {
     raise Syntax(IllegalOctet, c.position())
   }
@@ -392,7 +395,7 @@ fn is_address_header(name : Bytes) -> Bool {
     cand in [
       b"From", b"To", b"Contact", b"Route", b"Record-Route", b"f", b"t", b"m",
     ] {
-    if bytes_eq_ignore_ascii_case(name.view(), cand.view()) {
+    if bytes_eq_ignore_ascii_case(name.exact_view(), cand.exact_view()) {
       return true
     }
   }
@@ -400,24 +403,121 @@ fn is_address_header(name : Bytes) -> Bool {
 }
 
 ///|
-/// `SIP-date` per RFC 3261 §25.1 is RFC 1123 with the zone fixed to `GMT`. Other
-/// zone designations that mean the same thing (`UT`, `UTC`, `UCT`) are explicitly
-/// invalid — that is exactly RFC 4475 §3.1.2.12 ("baddate").
+/// `SIP-date` per RFC 3261 §25.1: RFC 1123 date with the zone fixed to `GMT`.
+/// Full grammar check (weekday names, month names, digit fields, ranges) plus
+/// weekday/date agreement via Zeller's congruence, so `Mon, 01 Jan 2010` fails
+/// on the weekday even though every token looks plausible. Other zone
+/// designations that mean the same thing (`UT`, `UTC`, `UCT`) are explicitly
+/// invalid -- that is exactly RFC 4475 §3.1.2.12 ("baddate").
 fn is_sip_date(v : BytesView) -> Bool {
-  let n = v.length()
-  if n < 20 {
+  // `Wkd, DD Mon YYYY HH:MM:SS GMT` is exactly 29 octets -- the grammar fixes
+  // 2DIGIT day, 4DIGIT year and a 3-letter zone, so anything else is malformed.
+  if v.length() != 29 {
     return false
   }
-  if !bytes_eq_ignore_ascii_case(v.view(start=n - 3, end=n), b"GMT".view()) {
+  if !bytes_eq_ignore_ascii_case(
+      v.exact_view(start=26, end=29),
+      b"GMT".exact_view(),
+    ) {
     return false
   }
-  let mut colons = 0
-  for i in 0..<n {
-    if v[i] == COLON {
-      colons = colons + 1
+  if v[3] != COMMA || v[4] != SP || v[7] != SP || v[11] != SP || v[16] != SP {
+    return false
+  }
+  if v[19] != COLON || v[22] != COLON {
+    return false
+  }
+  let wnum = weekday_num(v.exact_view(start=0, end=3))
+  if wnum < 0 {
+    return false
+  }
+  let mon = month_num(v.exact_view(start=8, end=11))
+  if mon < 0 {
+    return false
+  }
+  for i in [5, 6, 12, 13, 14, 15, 17, 18, 20, 21, 23, 24] {
+    if !is_digit(v[i]) {
+      return false
     }
   }
-  colons == 2
+  let day = digit2(v, 5)
+  let year = digit2(v, 12) * 100 + digit2(v, 14)
+  let hh = digit2(v, 17)
+  let mm = digit2(v, 20)
+  let ss = digit2(v, 23)
+  if day < 1 || day > days_in_month(mon, year) {
+    return false
+  }
+  // 60 seconds is legal exactly as a leap second.
+  if hh > 23 || mm > 59 || ss > 60 {
+    return false
+  }
+  // Weekday/date agreement: Zeller's congruence, h = 0 is Saturday.
+  let zmon = if mon < 3 { mon + 12 } else { mon }
+  let zyear = if mon < 3 { year - 1 } else { year }
+  let k = zyear % 100
+  let j = zyear / 100
+  let h = (day + 13 * (zmon + 1) / 5 + k + k / 4 + j / 4 + 5 * j) % 7
+  zeller_to_mon0(h) == wnum
+}
+
+///|
+/// Two decimal digits starting at `at`, as an integer.
+fn digit2(v : BytesView, at : Int32) -> Int32 {
+  (v[at] - b'0').to_int() * 10 + (v[at + 1] - b'0').to_int()
+}
+
+///|
+/// 0 = Mon .. 6 = Sun, or -1 when the name is not one of the seven.
+fn weekday_num(w : BytesView) -> Int32 {
+  let days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  for i in 0..<days.length() {
+    if bytes_eq_ignore_ascii_case(w, ascii_bytes_of(days[i]).exact_view()) {
+      return i
+    }
+  }
+  -1
+}
+
+///|
+/// 1 = Jan .. 12 = Dec, or -1 when the name is not one of the twelve.
+fn month_num(m : BytesView) -> Int32 {
+  let months = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
+    "Dec",
+  ]
+  for i in 0..<months.length() {
+    if bytes_eq_ignore_ascii_case(m, ascii_bytes_of(months[i]).exact_view()) {
+      return i + 1
+    }
+  }
+  -1
+}
+
+///|
+/// Days in a month, honouring the leap-year rule.
+fn days_in_month(mon : Int32, year : Int32) -> Int32 {
+  let dim = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  let base = dim[mon - 1]
+  if mon == 2 && year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+    return 29
+  }
+  base
+}
+
+///|
+/// Maps Zeller's h (0 = Saturday) to the 0 = Mon numbering used above.
+fn zeller_to_mon0(h : Int32) -> Int32 {
+  match h {
+    2 => 0
+    3 => 1
+    4 => 2
+    5 => 3
+    6 => 4
+    0 => 5
+    1 => 6
+    _ => -1
+  }
 }
 
 ///|
@@ -425,7 +525,7 @@ fn is_sip_date(v : BytesView) -> Bool {
 /// translated into whole-message coordinates, so callers never see a view-relative
 /// number.
 fn validate_header_value(h : HeaderField) -> Unit raise SipError {
-  if h.name_is("Date") && !is_sip_date(h.value.view()) {
+  if h.name_is("Date") && !is_sip_date(h.value.exact_view()) {
     raise Syntax(MalformedDate, h.offset)
   }
   if !is_address_header(h.name) {
@@ -436,7 +536,7 @@ fn validate_header_value(h : HeaderField) -> Unit raise SipError {
     // decision to the diagnostics layer.
     return
   }
-  let sub = Cursor::new(h.value.view())
+  let sub = Cursor::new(h.value.exact_view())
   ignore(parse_name_addr_list(sub)) catch {
     Syntax(kind, at) => raise Syntax(kind, h.offset + at)
   }
@@ -481,7 +581,7 @@ pub fn parse_message(input : Bytes) -> SipMessage raise SipError {
     Some(raw) => {
       // Tolerate a leading `-` so a negative length becomes a diagnostic rather
       // than a parse failure (RFC 4475 §3.1.2.3).
-      let sub = Cursor::new(raw.view())
+      let sub = Cursor::new(raw.exact_view())
       let mut negative = false
       if sub.pos < sub.length() && sub.src[sub.pos] == MINUS {
         negative = true

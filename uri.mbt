@@ -23,11 +23,14 @@ pub enum UriScheme {
 }
 
 ///|
+pub extend UriScheme with Show::{to_string, output}
+
+///|
 pub impl Show for UriScheme with fn to_string(self : UriScheme) -> String {
   match self {
     Sip => "sip"
     Sips => "sips"
-    Other(raw) => ascii_of(raw.view())
+    Other(raw) => ascii_of(raw.exact_view())
   }
 }
 
@@ -41,11 +44,14 @@ pub enum Host {
 }
 
 ///|
+pub extend Host with Show::{to_string, output}
+
+///|
 pub impl Show for Host with fn to_string(self : Host) -> String {
   match self {
-    Name(b) => ascii_of(b.view())
-    Ipv4(b) => ascii_of(b.view())
-    Ipv6Reference(b) => ascii_of(b.view())
+    Name(b) => ascii_of(b.exact_view())
+    Ipv4(b) => ascii_of(b.exact_view())
+    Ipv6Reference(b) => ascii_of(b.exact_view())
   }
 }
 
@@ -99,7 +105,7 @@ pub struct SipUri {
   user : Bytes?
   password : Bytes?
   host : Host
-  port : Int?
+  port : Int32?
   params : Array[UriParam]
   headers : Array[UriHeader]
 }
@@ -136,7 +142,7 @@ pub fn SipUri::host(self : SipUri) -> Host {
 
 ///|
 /// The port, or `None` when absent.
-pub fn SipUri::port(self : SipUri) -> Int? {
+pub fn SipUri::port(self : SipUri) -> Int32? {
   self.port
 }
 
@@ -156,10 +162,10 @@ pub fn SipUri::headers(self : SipUri) -> Array[UriHeader] {
 /// Looks up a URI parameter by name, case-insensitively. Returns the last
 /// occurrence, matching how flags such as `;lr` are conventionally read.
 pub fn SipUri::param(self : SipUri, name : String) -> UriParam? {
-  let want = ascii_bytes_of(name).view()
+  let want = ascii_bytes_of(name).exact_view()
   let mut found : UriParam? = None
   for p in self.params {
-    if bytes_eq_ignore_ascii_case(p.name.view(), want) {
+    if bytes_eq_ignore_ascii_case(p.name.exact_view(), want) {
       found = Some(p)
     }
   }
@@ -173,7 +179,8 @@ pub fn SipUri::is_phone_user(self : SipUri) -> Bool {
   match self.param("user") {
     Some(p) =>
       match p.value {
-        Some(v) => bytes_eq_ignore_ascii_case(v.view(), b"phone".view())
+        Some(v) =>
+          bytes_eq_ignore_ascii_case(v.exact_view(), b"phone".exact_view())
         None => false
       }
     None => false
@@ -288,9 +295,9 @@ fn parse_scheme(c : Cursor) -> UriScheme raise SipError {
     }
   }
   let raw = copy_range(c.src, start, c.position())
-  if bytes_eq_ignore_ascii_case(raw.view(), b"sip".view()) {
+  if bytes_eq_ignore_ascii_case(raw.exact_view(), b"sip".exact_view()) {
     UriScheme::Sip
-  } else if bytes_eq_ignore_ascii_case(raw.view(), b"sips".view()) {
+  } else if bytes_eq_ignore_ascii_case(raw.exact_view(), b"sips".exact_view()) {
     UriScheme::Sips
   } else {
     UriScheme::Other(raw)
@@ -306,7 +313,10 @@ pub fn looks_like_sip_uri(c : Cursor) -> Bool {
 ///|
 /// Parses the userinfo section that ends at `at_pos`, leaving the cursor on the
 /// `@`. Returns `(user, password)`.
-fn parse_userinfo(c : Cursor, at_pos : Int) -> (Bytes?, Bytes?) raise SipError {
+fn parse_userinfo(
+  c : Cursor,
+  at_pos : Int32,
+) -> (Bytes?, Bytes?) raise SipError {
   let ustart = c.position()
   let mut user : Bytes? = None
   let mut password : Bytes? = None
@@ -371,7 +381,7 @@ fn parse_host(c : Cursor) -> Host raise SipError {
   if hn.length() == 0 {
     raise Syntax(IllegalOctet, hstart)
   }
-  if is_dotted_quad(hn.view()) {
+  if is_dotted_quad(hn.exact_view()) {
     Host::Ipv4(hn)
   } else {
     Host::Name(hn)
@@ -379,7 +389,7 @@ fn parse_host(c : Cursor) -> Host raise SipError {
 }
 
 ///|
-fn parse_port(c : Cursor) -> Int? raise SipError {
+fn parse_port(c : Cursor) -> Int32? raise SipError {
   if c.eof() || c.src[c.pos] != COLON {
     return None
   }

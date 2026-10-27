@@ -26,8 +26,8 @@ pub struct HeaderField {
   name : Bytes
   value : Bytes
   raw : Bytes
-  offset : Int
-  line : Int
+  offset : Int32
+  line : Int32
 }
 
 ///|
@@ -50,13 +50,13 @@ pub fn HeaderField::raw(self : HeaderField) -> Bytes {
 
 ///|
 /// Byte offset of the field name in the input.
-pub fn HeaderField::offset(self : HeaderField) -> Int {
+pub fn HeaderField::offset(self : HeaderField) -> Int32 {
   self.offset
 }
 
 ///|
 /// 1-based line number, for reporting.
-pub fn HeaderField::line(self : HeaderField) -> Int {
+pub fn HeaderField::line(self : HeaderField) -> Int32 {
   self.line
 }
 
@@ -84,15 +84,15 @@ fn long_name_of(compact : Byte) -> String? {
 /// Case-insensitive name test, honouring the compact forms in both directions.
 pub fn HeaderField::name_is(self : HeaderField, name : String) -> Bool {
   let want = ascii_bytes_of(name)
-  if bytes_eq_ignore_ascii_case(self.name.view(), want.view()) {
+  if bytes_eq_ignore_ascii_case(self.name.exact_view(), want.exact_view()) {
     return true
   }
   if self.name.length() == 1 {
     match long_name_of(self.name[0]) {
       Some(long) =>
         return bytes_eq_ignore_ascii_case(
-          want.view(),
-          ascii_bytes_of(long).view(),
+          want.exact_view(),
+          ascii_bytes_of(long).exact_view(),
         )
       None => ()
     }
@@ -101,8 +101,8 @@ pub fn HeaderField::name_is(self : HeaderField, name : String) -> Bool {
     match long_name_of(want[0]) {
       Some(long) =>
         return bytes_eq_ignore_ascii_case(
-          self.name.view(),
-          ascii_bytes_of(long).view(),
+          self.name.exact_view(),
+          ascii_bytes_of(long).exact_view(),
         )
       None => ()
     }
@@ -136,7 +136,7 @@ fn parse_field_value(c : Cursor) -> Bytes {
     c.pos = c.pos + 1
   }
   let collected = Bytes::from_array(out)
-  bytes_of_view(trim_ows(collected.view()))
+  bytes_of_view(trim_ows(collected.exact_view()))
 }
 
 ///|
@@ -150,13 +150,16 @@ pub fn trim_ows(b : BytesView) -> BytesView {
   while e > s && is_lws(b[e - 1]) {
     e = e - 1
   }
-  b.view(start=s, end=e)
+  b.exact_view(start=s, end=e)
 }
 
 ///|
 /// Parses one header field. The cursor must be positioned at the first octet of
 /// the field name.
-pub fn parse_header_field(c : Cursor, line : Int) -> HeaderField raise SipError {
+pub fn parse_header_field(
+  c : Cursor,
+  line : Int32,
+) -> HeaderField raise SipError {
   let fstart = c.position()
   let nstart = c.position()
   while c.pos < c.length() {

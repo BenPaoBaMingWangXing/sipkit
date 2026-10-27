@@ -28,6 +28,9 @@ pub enum SyntaxKind {
 }
 
 ///|
+pub extend SyntaxKind with Show::{to_string, output}
+
+///|
 pub impl Show for SyntaxKind with fn to_string(self : SyntaxKind) -> String {
   match self {
     EmptyInput => "empty input"
@@ -49,8 +52,11 @@ pub impl Show for SyntaxKind with fn to_string(self : SyntaxKind) -> String {
 /// The only error type the parser raises. `offset` is a byte offset into the
 /// buffer handed to `parse_message`.
 pub suberror SipError {
-  Syntax(SyntaxKind, Int)
+  Syntax(SyntaxKind, Int32)
 }
+
+///|
+pub extend SipError with Show::{to_string, output}
 
 ///|
 pub impl Show for SipError with fn to_string(self : SipError) -> String {
@@ -65,7 +71,7 @@ pub impl Show for SipError with fn to_string(self : SipError) -> String {
 /// caller's position.
 pub struct Cursor {
   src : BytesView
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
@@ -77,18 +83,18 @@ pub fn Cursor::new(src : BytesView) -> Cursor {
 ///|
 /// Creates a cursor over owned octets.
 pub fn Cursor::from_bytes(src : Bytes) -> Cursor {
-  { src: src.view(), pos: 0, }
+  { src: src.exact_view(), pos: 0, }
 }
 
 ///|
 /// Current byte offset.
-pub fn Cursor::position(self : Cursor) -> Int {
+pub fn Cursor::position(self : Cursor) -> Int32 {
   self.pos
 }
 
 ///|
 /// Total octets in the underlying view.
-pub fn Cursor::length(self : Cursor) -> Int {
+pub fn Cursor::length(self : Cursor) -> Int32 {
   self.src.length()
 }
 
@@ -106,7 +112,7 @@ pub fn Cursor::peek(self : Cursor) -> Byte? {
 
 ///|
 /// The octet `ahead` positions past the cursor, if any.
-pub fn Cursor::peek_at(self : Cursor, ahead : Int) -> Byte? {
+pub fn Cursor::peek_at(self : Cursor, ahead : Int32) -> Byte? {
   self.src.get(self.pos + ahead)
 }
 
@@ -138,7 +144,7 @@ pub fn Cursor::expect_byte(self : Cursor, want : Byte) -> Unit raise SipError {
 ///|
 /// Case-sensitive literal match at the cursor.
 pub fn Cursor::starts_with(self : Cursor, lit : String) -> Bool {
-  let l = ascii_bytes_of(lit).view()
+  let l = ascii_bytes_of(lit).exact_view()
   if self.pos + l.length() > self.src.length() {
     return false
   }
@@ -155,7 +161,7 @@ pub fn Cursor::starts_with(self : Cursor, lit : String) -> Bool {
 ///|
 /// ASCII case-insensitive literal match at the cursor.
 pub fn Cursor::starts_with_ignore_case(self : Cursor, lit : String) -> Bool {
-  let l = ascii_bytes_of(lit).view()
+  let l = ascii_bytes_of(lit).exact_view()
   if self.pos + l.length() > self.src.length() {
     return false
   }
@@ -183,7 +189,7 @@ pub fn Cursor::expect_literal(
 
 ///|
 /// Skips zero or more SP/HTAB.
-pub fn Cursor::skip_lws(self : Cursor) -> Int {
+pub fn Cursor::skip_lws(self : Cursor) -> Int32 {
   let start = self.pos
   while true {
     match self.peek() {
@@ -227,7 +233,7 @@ pub fn Cursor::consume_fold(self : Cursor) -> Bool {
 ///|
 /// Skips "optional whitespace" in the RFC 3261 sense: LWS, and any number of
 /// folds, repeatedly. Returns the number of octets consumed.
-pub fn Cursor::skip_sws(self : Cursor) -> Int {
+pub fn Cursor::skip_sws(self : Cursor) -> Int32 {
   let start = self.pos
   while true {
     let before = self.pos

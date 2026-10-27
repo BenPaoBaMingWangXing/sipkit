@@ -18,20 +18,21 @@ fn show(text : String) -> Unit {
       println("    scheme   \{u.scheme()}")
       match u.user() {
         Some(v) => {
-          println("    user     \{@sipkit.ascii_of(v.view())}")
+          println("    user     \{@sipkit.ascii_of(v.exact_view())}")
           // Show the decoded form only when it differs, so `%41` -> `A` and
           // `%2541` -> `%41` are visible side by side: decoding is single-pass.
-          let decoded = @sipkit.unescape_once(v.view())
-          if @sipkit.hex_of(decoded.view()) != @sipkit.hex_of(v.view()) {
+          let decoded = @sipkit.unescape_once(v.exact_view())
+          if @sipkit.hex_of(decoded.exact_view()) !=
+            @sipkit.hex_of(v.exact_view()) {
             println(
-              "    user*    \{@sipkit.ascii_of(decoded.view())}   (decoded once)",
+              "    user*    \{@sipkit.ascii_of(decoded.exact_view())}   (decoded once)",
             )
           }
         }
         None => println("    user     (none)")
       }
       match u.password() {
-        Some(v) => println("    password \{@sipkit.ascii_of(v.view())}")
+        Some(v) => println("    password \{@sipkit.ascii_of(v.exact_view())}")
         None => ()
       }
       println("    host     \{u.host()}")
@@ -45,9 +46,9 @@ fn show(text : String) -> Unit {
           match p.value() {
             Some(v) =>
               println(
-                "      ;\{@sipkit.ascii_of(p.name().view())}=\{@sipkit.ascii_of(v.view())}",
+                "      ;\{@sipkit.ascii_of(p.name().exact_view())}=\{@sipkit.ascii_of(v.exact_view())}",
               )
-            None => println("      ;\{@sipkit.ascii_of(p.name().view())}")
+            None => println("      ;\{@sipkit.ascii_of(p.name().exact_view())}")
           }
         }
       }
@@ -55,7 +56,7 @@ fn show(text : String) -> Unit {
         println("    uri headers")
         for h in u.headers() {
           println(
-            "      ?\{@sipkit.ascii_of(h.name().view())}=\{@sipkit.ascii_of(h.value().view())}",
+            "      ?\{@sipkit.ascii_of(h.name().exact_view())}=\{@sipkit.ascii_of(h.value().exact_view())}",
           )
         }
       }

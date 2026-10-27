@@ -46,7 +46,7 @@ pub fn to_bytes(msg : SipMessage) -> Bytes {
 /// offset.
 pub struct Analysis {
   message : SipMessage?
-  syntax : (SyntaxKind, Int)?
+  syntax : (SyntaxKind, Int32)?
   diagnostics : Array[Diagnostic]
 }
 
@@ -58,7 +58,7 @@ pub fn Analysis::message(self : Analysis) -> SipMessage? {
 
 ///|
 /// The syntax error kind and offset, when parsing failed.
-pub fn Analysis::syntax(self : Analysis) -> (SyntaxKind, Int)? {
+pub fn Analysis::syntax(self : Analysis) -> (SyntaxKind, Int32)? {
   self.syntax
 }
 
@@ -79,6 +79,9 @@ pub enum Verdict {
   /// Parsed, but a semantic rule fired.
   SemanticRejected
 }
+
+///|
+pub extend Verdict with Show::{to_string, output}
 
 ///|
 pub impl Show for Verdict with fn to_string(self : Verdict) -> String {
@@ -131,7 +134,9 @@ pub fn Analysis::has_code(self : Analysis, code : DiagCode) -> Bool {
 pub fn analyze(input : Bytes) -> Analysis {
   // One parse, one outcome: the failure reason and the message are produced by the
   // same call, so a malformed input is never parsed twice just to explain itself.
-  let outcome : Result[SipMessage, (SyntaxKind, Int)] = Ok(parse_message(input)) catch {
+  let outcome : Result[SipMessage, (SyntaxKind, Int32)] = Ok(
+    parse_message(input),
+  ) catch {
     Syntax(kind, at) => Err((kind, at))
   }
   match outcome {

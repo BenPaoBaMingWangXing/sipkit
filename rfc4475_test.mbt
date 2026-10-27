@@ -324,8 +324,8 @@ test "RFC 4475 corpus: every asserted vector reaches its required verdict" {
       continue
     }
     asserted = asserted + 1
-    let input = bytes_from_hex(v.hex)
-    let a = analyze(input)
+    let input = @sipkit.bytes_from_hex(v.hex)
+    let a = @sipkit.analyze(input)
     let actual = a.verdict().to_string()
     if actual != v.expect {
       failures.push("\{v.id}(\{v.section}) expected \{v.expect} got \{actual}")
@@ -350,16 +350,17 @@ test "RFC 4475 corpus: accepted vectors round-trip byte-for-byte" {
     if v.expect != "well-formed" || v.id == "mpart01" {
       continue
     }
-    let input = bytes_from_hex(v.hex)
-    let a = analyze(input)
+    let input = @sipkit.bytes_from_hex(v.hex)
+    let a = @sipkit.analyze(input)
     match a.message() {
       Some(msg) => {
         // dblreq carries a second message after the first body; only the
         // consumed prefix is expected to round-trip.
         let consumed = msg.consumed()
-        let rebuilt = to_bytes(msg)
-        let prefix = input.view(start=0, end=consumed)
-        if hex_of(rebuilt.view()) != hex_of(prefix.view()) {
+        let rebuilt = @sipkit.to_bytes(msg)
+        let prefix = input.exact_view(start=0, end=consumed)
+        if @sipkit.hex_of(rebuilt.exact_view()) !=
+          @sipkit.hex_of(prefix.exact_view()) {
           failures.push("\{v.id}: round-trip mismatch")
         }
         if msg.trailing().length() > 0 && v.id != "dblreq" {

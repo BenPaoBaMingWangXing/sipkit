@@ -1,17 +1,17 @@
 // surface_test.mbt — error vocabulary and start-line rejection paths.
 //
 // Everything here exists for one reason: a diagnostic is only useful if the
-// message it prints is the right one. That means every `DiagCode` and every
+// message it prints is the right one. That means every `@sipkit.DiagCode` and every
 // `SyntaxKind` string must be exercised at least once, and every start-line
 // rejection path must be reachable and report the specific kind rather than a
 // generic failure.
 
 ///|
-/// Feeds a message through analyze and returns the diagnostics' rendered form,
+/// Feeds a message through @sipkit.analyze and returns the diagnostics' rendered form,
 /// so the Show instance is exercised for whichever codes it produced.
 fn render_diagnostics(input : Bytes) -> Array[String] {
   let out : Array[String] = []
-  for d in analyze(input).diagnostics() {
+  for d in @sipkit.analyze(input).diagnostics() {
     out.push(d.to_string())
   }
   out
@@ -82,7 +82,7 @@ test "syntax kinds render as human-readable phrases" {
      b"SIP/2.0\r\n\r\n", // response without code
   ]
   for i in inputs {
-    match analyze(i).syntax() {
+    match @sipkit.analyze(i).syntax() {
       Some(pair) => kinds.push(pair.0.to_string())
       None => fail("expected a syntax error")
     }
@@ -129,7 +129,7 @@ test "status line: a non-numeric code is rejected" {
 
 ///|
 test "token primitives at end of input return None rather than panic" {
-  let c = Cursor::from_bytes(b"ab")
+  let c = @sipkit.Cursor::from_bytes(b"ab")
   ignore(c.advance())
   ignore(c.advance())
   assert_true(c.peek() is None)
@@ -144,8 +144,10 @@ test "token primitives at end of input return None rather than panic" {
 
 ///|
 test "quoted string: a trailing backslash at end of input is reported" {
-  let c = Cursor::from_bytes(b"\"abc\\")
-  let r : Result[QuotedString, SipError] = Ok(parse_quoted_string(c)) catch {
+  let c = @sipkit.Cursor::from_bytes(b"\"abc\\")
+  let r : Result[@sipkit.QuotedString, @sipkit.SipError] = Ok(
+    @sipkit.parse_quoted_string(c),
+  ) catch {
     e => Err(e)
   }
   match r {
@@ -156,8 +158,10 @@ test "quoted string: a trailing backslash at end of input is reported" {
 
 ///|
 test "comment: a trailing backslash at end of input is reported" {
-  let c = Cursor::from_bytes(b"(abc\\")
-  let r : Result[Bytes, SipError] = Ok(parse_comment(c)) catch { e => Err(e) }
+  let c = @sipkit.Cursor::from_bytes(b"(abc\\")
+  let r : Result[Bytes, @sipkit.SipError] = Ok(@sipkit.parse_comment(c)) catch {
+    e => Err(e)
+  }
   match r {
     Ok(_) => fail("expected UnexpectedEnd")
     Err(e) => assert_true(e.to_string().contains("unexpected end"))

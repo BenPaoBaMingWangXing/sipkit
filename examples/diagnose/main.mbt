@@ -9,10 +9,10 @@
 
 ///|
 /// Shows the octets around `at` so a reported offset is obviously actionable.
-fn context_around(input : Bytes, at : Int) -> String {
+fn context_around(input : Bytes, at : Int32) -> String {
   let start = if at > 18 { at - 18 } else { 0 }
   let stop = if at + 18 < input.length() { at + 18 } else { input.length() }
-  @sipkit.ascii_of(input.view(start~, end=stop))
+  @sipkit.ascii_of(input.exact_view(start~, end=stop))
 }
 
 ///|

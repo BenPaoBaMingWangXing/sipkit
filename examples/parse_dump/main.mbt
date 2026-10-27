@@ -19,13 +19,14 @@ fn main {
   match msg.start_line() {
     Request(rl) => {
       println("start line")
-      println("  method     \{@sipkit.ascii_of(rl.verb().view())}")
-      println("  version    \{@sipkit.ascii_of(rl.version().view())}")
+      println("  method     \{@sipkit.ascii_of(rl.verb().exact_view())}")
+      println("  version    \{@sipkit.ascii_of(rl.version().exact_view())}")
       match rl.uri() {
         Parsed(uri) => {
           println("  uri.scheme \{uri.scheme()}")
           match uri.user() {
-            Some(u) => println("  uri.user   \{@sipkit.ascii_of(u.view())}")
+            Some(u) =>
+              println("  uri.user   \{@sipkit.ascii_of(u.exact_view())}")
             None => println("  uri.user   (none)")
           }
           println("  uri.host   \{uri.host()}")
@@ -38,14 +39,14 @@ fn main {
             match p.value() {
               Some(v) =>
                 println(
-                  "    ;\{@sipkit.ascii_of(p.name().view())}=\{@sipkit.ascii_of(v.view())}",
+                  "    ;\{@sipkit.ascii_of(p.name().exact_view())}=\{@sipkit.ascii_of(v.exact_view())}",
                 )
-              None => println("    ;\{@sipkit.ascii_of(p.name().view())}")
+              None => println("    ;\{@sipkit.ascii_of(p.name().exact_view())}")
             }
           }
         }
         Other(o) =>
-          println("  uri        (non-SIP) \{@sipkit.ascii_of(o.view())}")
+          println("  uri        (non-SIP) \{@sipkit.ascii_of(o.exact_view())}")
       }
     }
     Response(_) => println("(a response, not a request)")
@@ -56,7 +57,7 @@ fn main {
   for h in msg.headers() {
     // Printed in full: `raw()` would give the same octets including the fold.
     println(
-      "  line \{h.line()}  \{@sipkit.ascii_of(h.name().view())}: \{@sipkit.ascii_of(h.value().view())}",
+      "  line \{h.line()}  \{@sipkit.ascii_of(h.name().exact_view())}: \{@sipkit.ascii_of(h.value().exact_view())}",
     )
   }
 
@@ -69,6 +70,6 @@ fn main {
   let rebuilt = @sipkit.to_bytes(msg)
   println("")
   println(
-    "round-trip identical: \{rebuilt.length() == raw.length() && @sipkit.hex_of(rebuilt.view()) == @sipkit.hex_of(raw.view())}",
+    "round-trip identical: \{rebuilt.length() == raw.length() && @sipkit.hex_of(rebuilt.exact_view()) == @sipkit.hex_of(raw.exact_view())}",
   )
 }

@@ -302,28 +302,49 @@ seed that fails.
 
 ## Known limitations
 
-Stated plainly, because a conformance claim is only as good as its edges:
+Scope statement first: the final scope of this project is the **RFC 3261 message
+layer** (§7 message format, §19.1 SIP-URI, §20 header fields, §25.1 message-layer
+ABNF). Everything in that scope is implemented except two tracked items with
+dates (below); everything outside it — dialog layer, transactions, authentication,
+TLS — is out of scope by design, not "not yet".
 
-1. **The native backend is not verified locally.** This development machine has no system C
-   compiler (`cl`, `cc`, `gcc`, `clang` all absent), so `moon test --target native` cannot run
-   here. CI covers it on Ubuntu. The three JS/Wasm backends pass locally.
-2. **CI runs a rolling toolchain.** Version-pinned archives under `cli.moonbitlang.com/binaries/<version>/`
-   return 403, so CI cannot install the exact build (`0.1.20260904`) this repository was
-   formatted with. The formatting gate therefore reports without blocking; `check`, `test`
-   and `build` stay hard gates on all four targets. The generated fixture is compared
-   token-for-token rather than character-for-character for the same reason.
-3. **`mpart01` is a framing vector, not a round-trip vector.** The RFC prints
-   `Content-Length: 553` for a hex body that is 14 octets longer. `sipkit` frames by
-   `Content-Length` (the correct behaviour) and reports the remaining 14 octets as trailing.
-   The mismatch is in the RFC text, not in the parser.
-4. **`?` inside a URI user part is ambiguous by construction.** RFC 3261 allows `?` in `user`,
-   but `?` also starts URI headers. `sipkit` treats the first `@` as the userinfo separator,
-   which is what makes §3.1.1.2 (`intmeth`) parse. A URI with no userinfo whose `?`-headers
-   contain `@` would be misread; the grammar has no correct resolution for this.
-5. **Character handling is octet-oriented, not UTF-8 validated.** RFC 3261 admits
-   `UTF8-NONASCII` in several productions; `sipkit` preserves such octets without validating
-   UTF-8 well-formedness.
-6. **`Date` validation is structural.** It enforces the `GMT` zone (the part §3.1.2.12 tests)
-   and a `HH:MM:SS` time, but does not check weekday/date agreement.
-7. **Typed header checks are limited.** Diagnostics understand `CSeq`, `Max-Forwards`,
-   `Retry-After`, `Via` and `Contact`; other fields are checked structurally only.
+**In scope, tracked, dated:**
+
+1. **Typed validation for the remaining §20 header fields.** `CSeq`,
+   `Max-Forwards`, `Retry-After`, `Via`, `Contact`, `Content-Length`, `Date`,
+   duplicate single-valued headers and required-header presence are validated
+   today. The rest of the message-layer fields (`Expires`, `Min-Expires`,
+   `Warning`, `In-Reply-To`, `Rack`/`RSeq`) are parsed but not yet
+   semantically validated — **due 2026-10-30**.
+2. **`TEXT-UTF8-TRIM` well-formedness.** `Reason-Phrase` and other TEXT fields
+   preserve octets; UTF-8 sequence validation with a diagnostic on malformed
+   input is **due 2026-10-31**.
+
+**Completed after the first application review** (previously listed here as
+limitations):
+
+- ~~`Date` is structural only~~ → full §25.1 `SIP-date` since 2026-10-27: fixed
+  29-octet shape, weekday/month whitelists, day-in-month with leap years,
+  `HH≤23`/`MM≤59`/`SS≤60` (60 as leap second), and weekday/date agreement via
+  Zeller's congruence — `Mon, 01 Jan 2010` is rejected on the weekday although
+  every token looks plausible.
+
+**Specification-level conflicts, recorded not pending** — these have no correct
+answer in the documents; the implementation takes a defensible side and says so:
+
+1. **`:` in the user part.** RFC 4475 §3.1.1.2's message puts `:` inside the
+   user part; RFC 3261 §25.1's `user-unreserved` does not include it (`:` is the
+   user/password separator). The ABNF wins: the user ends at the first colon,
+   the rest is the password.
+2. **Parameter namespace on a bare addr-spec.** `Contact: sip:a@b;unknownparam`
+   without angle brackets makes `;`-parameters both URI parameters and contact
+   parameters, and the grammar cannot separate them. RFC 3261 §20.10 admits this
+   and recommends always using `<>`. The parameter stays reachable and
+   user/host are unaffected.
+3. **`mpart01` sample data.** The RFC prints `Content-Length: 553` for a hex
+   body that is 14 octets longer. Framing by `Content-Length` (the correct
+   behaviour) leaves those 14 octets as trailing.
+
+**Environment, not code:** the native backend is verified in CI only — this
+development machine has no C compiler (`cl`/`cc`/`gcc`/`clang` all absent). The
+three JS/Wasm backends pass locally.

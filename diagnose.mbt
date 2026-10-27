@@ -18,6 +18,9 @@ pub enum Severity {
 }
 
 ///|
+pub extend Severity with Show::{to_string, output}
+
+///|
 pub impl Show for Severity with fn to_string(self : Severity) -> String {
   match self {
     Error => "error"
@@ -49,6 +52,9 @@ pub(all) enum DiagCode {
 }
 
 ///|
+pub extend DiagCode with Show::{to_string, output}
+
+///|
 pub impl Show for DiagCode with fn to_string(self : DiagCode) -> String {
   match self {
     MissingRequiredHeader => "missing-required-header"
@@ -75,7 +81,7 @@ pub impl Show for DiagCode with fn to_string(self : DiagCode) -> String {
 pub struct Diagnostic {
   code : DiagCode
   severity : Severity
-  offset : Int
+  offset : Int32
   detail : String
 }
 
@@ -93,7 +99,7 @@ pub fn Diagnostic::severity(self : Diagnostic) -> Severity {
 
 ///|
 /// Byte offset into the input where the problem was seen.
-pub fn Diagnostic::offset(self : Diagnostic) -> Int {
+pub fn Diagnostic::offset(self : Diagnostic) -> Int32 {
   self.offset
 }
 
@@ -104,17 +110,20 @@ pub fn Diagnostic::detail(self : Diagnostic) -> String {
 }
 
 ///|
+pub extend Diagnostic with Show::{to_string, output}
+
+///|
 pub impl Show for Diagnostic with fn to_string(self : Diagnostic) -> String {
   "\{self.severity}:\{self.code}@\{self.offset} \{self.detail}"
 }
 
 ///|
-fn err(code : DiagCode, offset : Int, detail : String) -> Diagnostic {
+fn err(code : DiagCode, offset : Int32, detail : String) -> Diagnostic {
   { code, severity: Severity::Error, offset, detail, }
 }
 
 ///|
-fn warn(code : DiagCode, offset : Int, detail : String) -> Diagnostic {
+fn warn(code : DiagCode, offset : Int32, detail : String) -> Diagnostic {
   { code, severity: Severity::Warning, offset, detail, }
 }
 
@@ -128,8 +137,8 @@ fn is_single_valued(name : String) -> Bool {
       "content-type", "c", "date", "subject", "s", "expires", "user-agent", "server",
     ] {
     if bytes_eq_ignore_ascii_case(
-        ascii_bytes_of(name).view(),
-        ascii_bytes_of(cand).view(),
+        ascii_bytes_of(name).exact_view(),
+        ascii_bytes_of(cand).exact_view(),
       ) {
       return true
     }
@@ -149,7 +158,7 @@ fn request_requires_headers(verb : Bytes) -> Bool {
 ///|
 /// Extracts a `;name=value` parameter from a header field value. Returns the value
 /// octets (quote-stripped) and the offset of the value.
-fn param_of(value : BytesView, want : String) -> (Bytes?, Int) {
+fn param_of(value : BytesView, want : String) -> (Bytes?, Int32) {
   let n = value.length()
   let mut i = 0
   while i < n {
@@ -162,7 +171,7 @@ fn param_of(value : BytesView, want : String) -> (Bytes?, Int) {
       while i < n && is_token_char(value[i]) {
         i = i + 1
       }
-      let name = value.view(start=ns, end=i)
+      let name = value.exact_view(start=ns, end=i)
       let mut val : Bytes? = None
       let mut voff = i
       // Whitespace may surround `=`; RFC 4475 §3.1.1.1 does exactly that.
@@ -197,7 +206,7 @@ fn param_of(value : BytesView, want : String) -> (Bytes?, Int) {
           val = Some(copy_range(value, vs, i))
         }
       }
-      if bytes_eq_ignore_ascii_case(name, ascii_bytes_of(want).view()) {
+      if bytes_eq_ignore_ascii_case(name, ascii_bytes_of(want).exact_view()) {
         return (val, voff)
       }
     } else {
@@ -209,7 +218,7 @@ fn param_of(value : BytesView, want : String) -> (Bytes?, Int) {
 
 ///|
 /// Reads a leading decimal run from a value, returning `(value, ok)`.
-fn leading_decimal(v : BytesView) -> (Int, Bool) {
+fn leading_decimal(v : BytesView) -> (Int32, Bool) {
   let mut i = 0
   let mut n = 0
   let mut overflow = false
@@ -277,7 +286,7 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
   }
   // --- duplicated single-valued headers (§3.3.8 "multi01") -----------------
   for h in msg.headers {
-    let name = ascii_of(h.name.view())
+    let name = ascii_of(h.name.exact_view())
     if is_single_valued(name) {
       let same = msg.all_headers(name)
       if same.length() > 1 {
@@ -310,7 +319,7 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
     // (SyntaxKind::BadContentLength), so the only question left here is whether
     // the declared length agrees with the framing that was actually produced.
     // Checks that can never fire are not kept as decoration.
-    let declared = leading_decimal(cl.value.view()).0
+    let declared = leading_decimal(cl.value.exact_view()).0
     if !(msg.trailing.length() > 0) && declared != msg.body.length() {
       // Declared longer than the datagram: §3.1.2.2 "clrf" style defect.
       out.push(
@@ -337,12 +346,12 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
   // the reader is by definition out of the 32-bit range the grammar allows.
   match msg.header("CSeq") {
     Some(cseq) => {
-      let v = cseq.value.view()
+      let v = cseq.value.exact_view()
       let mut i = 0
       while i < v.length() && is_digit(v[i]) {
         i = i + 1
       }
-      let digits = v.view(start=0, end=i)
+      let digits = v.exact_view(start=0, end=i)
       let (seq, ok) = leading_decimal(v)
       if !ok || seq >= 2147483647 || digits.length() > 10 {
         out.push(
@@ -358,7 +367,7 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
   }
   match msg.header("Retry-After") {
     Some(ra) => {
-      let v = ra.value.view()
+      let v = ra.value.exact_view()
       let mut i = 0
       while i < v.length() && is_digit(v[i]) {
         i = i + 1
@@ -384,7 +393,7 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
             err(
               UnsupportedExtension,
               f.offset,
-              "unsupported extension: \{ascii_of(f.value.view())}",
+              "unsupported extension: \{ascii_of(f.value.exact_view())}",
             ),
           )
         }
@@ -419,14 +428,14 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
             err(
               UnknownRequestUriScheme,
               0,
-              "Request-URI scheme is not sip/sips: \{ascii_of(raw.view())}",
+              "Request-URI scheme is not sip/sips: \{ascii_of(raw.exact_view())}",
             ),
           )
         Parsed(u) => {
           // RFC 4475 §3.1.2.11 "escruri": a Request-URI must not smuggle headers
           // past a proxy by escaping them. The vector escapes the angle brackets
           // of a Route value as %3C/%3E, which no legitimate Request-URI needs.
-          let raw = u.raw().view()
+          let raw = u.raw().exact_view()
           if contains_ignore_case(raw, b"%3c") ||
             contains_ignore_case(raw, b"%3e") {
             out.push(
@@ -442,7 +451,7 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
       // CSeq method agreement (§3.1.2.17 "mismatch01")
       match msg.header("CSeq") {
         Some(cseq) => {
-          let v = cseq.value.view()
+          let v = cseq.value.exact_view()
           let mut i = 0
           while i < v.length() && is_digit(v[i]) {
             i = i + 1
@@ -454,13 +463,14 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
           while i < v.length() && is_token_char(v[i]) {
             i = i + 1
           }
-          let cm = v.view(start=mstart, end=i)
-          if cm.length() > 0 && !bytes_eq_ignore_ascii_case(cm, verb.view()) {
+          let cm = v.exact_view(start=mstart, end=i)
+          if cm.length() > 0 &&
+            !bytes_eq_ignore_ascii_case(cm, verb.exact_view()) {
             out.push(
               err(
                 CSeqMethodMismatch,
                 cseq.offset,
-                "CSeq method \{ascii_of(cm.view())} != start line \{ascii_of(verb.view())}",
+                "CSeq method \{ascii_of(cm.exact_view())} != start line \{ascii_of(verb.exact_view())}",
               ),
             )
           }
@@ -470,7 +480,7 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
       // Max-Forwards range (§3.1.2.4)
       match msg.header("Max-Forwards") {
         Some(mf) => {
-          let (v, ok) = leading_decimal(mf.value.view())
+          let (v, ok) = leading_decimal(mf.value.exact_view())
           if !ok || v > 255 {
             out.push(
               err(ScalarOutOfRange, mf.offset, "Max-Forwards outside 0..255"),
@@ -482,13 +492,16 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
       // Via branch (§3.2.1 "nobranch", §3.4.1 "inv2543")
       let vias = msg.all_headers("Via")
       for via in vias {
-        let (branch, at) = param_of(via.value.view(), "branch")
+        let (branch, at) = param_of(via.value.exact_view(), "branch")
         match branch {
           Some(b) =>
             // `z9hG4bK` alone advertises RFC 3261 transaction matching yet carries
             // no identifier; that is the defect §3.2.1 is about.
             if b.length() == 0 ||
-              bytes_eq_ignore_ascii_case(b.view(), b"z9hG4bK".view()) {
+              bytes_eq_ignore_ascii_case(
+                b.exact_view(),
+                b"z9hG4bK".exact_view(),
+              ) {
               out.push(
                 err(
                   MissingViaBranch,
@@ -511,13 +524,13 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
       }
       // Contact framing (§3.1.2.13 "regbadct")
       for c in msg.all_headers("Contact") {
-        let v = c.value.view()
+        let v = c.value.exact_view()
         let mut i = 0
         while i < v.length() && is_lws(v[i]) {
           i = i + 1
         }
         if i < v.length() && v[i] != LT && v[i] != DQUOTE {
-          let has_q = match v.find(b"?".view()) {
+          let has_q = match v.find(b"?".exact_view()) {
             Some(_) => true
             None => false
           }
@@ -539,7 +552,7 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
         }
       }
       for via in vias {
-        if has_extraneous_separator(via.value.view()) {
+        if has_extraneous_separator(via.value.exact_view()) {
           out.push(
             err(
               ExtraneousSeparator,
@@ -550,7 +563,7 @@ pub fn diagnose(msg : SipMessage) -> Array[Diagnostic] {
         }
       }
       // INVITE establishes a dialog and must carry Contact (RFC 3261 §8.1.1.6).
-      if bytes_eq_ignore_ascii_case(verb, b"INVITE".view()) &&
+      if bytes_eq_ignore_ascii_case(verb, b"INVITE".exact_view()) &&
         msg.all_headers("Contact").length() == 0 {
         out.push(
           warn(MissingContactInDialogRequest, 0, "INVITE has no Contact"),

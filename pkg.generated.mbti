@@ -1,0 +1,401 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "BenPaoBaMingWangXing/sipkit"
+
+// Values
+pub const AT : Byte = b'@'
+
+pub const BSLASH : Byte = b'\\'
+
+pub const COLON : Byte = b':'
+
+pub const COMMA : Byte = b','
+
+pub const CR : Byte = b'\r'
+
+pub const DOT : Byte = b'.'
+
+pub const DQUOTE : Byte = b'"'
+
+pub const EQUALS : Byte = b'='
+
+pub const GT : Byte = b'>'
+
+pub const HTAB : Byte = b'\t'
+
+pub const LBRACKET : Byte = b'['
+
+pub const LF : Byte = b'\n'
+
+pub const LPAREN : Byte = b'('
+
+pub const LT : Byte = b'<'
+
+pub const MINUS : Byte = b'-'
+
+pub const PERCENT : Byte = b'%'
+
+pub const RBRACKET : Byte = b']'
+
+pub const RPAREN : Byte = b')'
+
+pub const SATURATED : Int32 = 2147483647
+
+pub const SEMI : Byte = b';'
+
+pub const SLASH : Byte = b'/'
+
+pub const SP : Byte = b' '
+
+pub fn analyze(Bytes) -> Analysis
+
+pub fn ascii_bytes_of(String) -> Bytes
+
+pub fn ascii_of(BytesView) -> String
+
+pub fn bytes_eq_ignore_ascii_case(BytesView, BytesView) -> Bool
+
+pub fn bytes_from_hex(String) -> Bytes
+
+pub fn bytes_of_view(BytesView) -> Bytes
+
+pub fn bytes_view_of(Bytes) -> BytesView
+
+pub fn contains_ignore_case(BytesView, BytesView) -> Bool
+
+pub fn content_length_of(Array[HeaderField]) -> Bytes?
+
+pub fn copy_range(BytesView, Int32, Int32) -> Bytes
+
+pub fn diagnose(SipMessage) -> Array[Diagnostic]
+
+pub fn eq_ignore_ascii_case(Byte, Byte) -> Bool
+
+pub fn hex_of(BytesView) -> String
+
+pub fn hex_value(Byte) -> Int32
+
+pub fn is_alnum(Byte) -> Bool
+
+pub fn is_alpha(Byte) -> Bool
+
+pub fn is_ctl(Byte) -> Bool
+
+pub fn is_digit(Byte) -> Bool
+
+pub fn is_hexdig(Byte) -> Bool
+
+pub fn is_high_octet(Byte) -> Bool
+
+pub fn is_lws(Byte) -> Bool
+
+pub fn is_separator(Byte) -> Bool
+
+pub fn is_sip_2_0(Bytes) -> Bool
+
+pub fn is_token_char(Byte) -> Bool
+
+pub fn is_unreserved(Byte) -> Bool
+
+pub fn looks_like_sip_uri(Cursor) -> Bool
+
+pub fn lower_ascii(Byte) -> Byte
+
+pub fn parse_comment(Cursor) -> Bytes raise SipError
+
+pub fn parse_header_field(Cursor, Int32) -> HeaderField raise SipError
+
+pub fn parse_message(Bytes) -> SipMessage raise SipError
+
+pub fn parse_name_addr(Cursor) -> NameAddr raise SipError
+
+pub fn parse_name_addr_list(Cursor) -> Array[NameAddr] raise SipError
+
+pub fn parse_quoted_string(Cursor) -> QuotedString raise SipError
+
+pub fn parse_sip_uri(Cursor) -> SipUri raise SipError
+
+pub fn parse_token(Cursor) -> Bytes raise SipError
+
+pub fn range_eq_ignore_case(BytesView, Int32, Int32, String) -> Bool
+
+pub fn to_bytes(SipMessage) -> Bytes
+
+pub fn trim_ows(BytesView) -> BytesView
+
+pub fn unescape_once(BytesView) -> Bytes
+
+// Errors
+pub suberror SipError {
+  Syntax(SyntaxKind, Int32)
+}
+pub fn SipError::output(Self, &Logger) -> Unit
+pub fn SipError::to_string(Self) -> String
+pub impl Show for SipError
+
+// Types and methods
+pub enum AddrSpec {
+  Sip(SipUri)
+  Other(Bytes)
+}
+pub fn AddrSpec::output(Self, &Logger) -> Unit
+pub fn AddrSpec::to_string(Self) -> String
+pub impl Show for AddrSpec
+
+pub struct Analysis {
+  message : SipMessage?
+  syntax : (SyntaxKind, Int32)?
+  diagnostics : Array[Diagnostic]
+}
+pub fn Analysis::diagnostics(Self) -> Array[Diagnostic]
+pub fn Analysis::has_code(Self, DiagCode) -> Bool
+pub fn Analysis::message(Self) -> SipMessage?
+pub fn Analysis::syntax(Self) -> (SyntaxKind, Int32)?
+pub fn Analysis::verdict(Self) -> Verdict
+
+pub struct Cursor {
+  src : BytesView
+  mut pos : Int32
+}
+pub fn Cursor::advance(Self) -> Byte?
+pub fn Cursor::at_fold(Self) -> Bool
+pub fn Cursor::consume_fold(Self) -> Bool
+pub fn Cursor::eof(Self) -> Bool
+pub fn Cursor::expect_byte(Self, Byte) -> Unit raise SipError
+pub fn Cursor::expect_literal(Self, String) -> Unit raise SipError
+pub fn Cursor::from_bytes(Bytes) -> Self
+pub fn Cursor::length(Self) -> Int32
+pub fn Cursor::new(BytesView) -> Self
+pub fn Cursor::peek(Self) -> Byte?
+pub fn Cursor::peek_at(Self, Int32) -> Byte?
+pub fn Cursor::position(Self) -> Int32
+pub fn Cursor::skip_lws(Self) -> Int32
+pub fn Cursor::skip_sws(Self) -> Int32
+pub fn Cursor::starts_with(Self, String) -> Bool
+pub fn Cursor::starts_with_ignore_case(Self, String) -> Bool
+
+pub(all) enum DiagCode {
+  MissingRequiredHeader
+  MissingViaBranch
+  CSeqMethodMismatch
+  ContentLengthMismatch
+  MultipleContentLengthValues
+  DuplicateSingleValueHeader
+  UnsupportedVersion
+  StatusCodeOutOfRange
+  ScalarOutOfRange
+  UnknownRequestUriScheme
+  TrailingOctets
+  ExtraneousSeparator
+  UnbracketedUriWithHeaders
+  MissingContactInDialogRequest
+  UnsupportedExtension
+  EscapedHeadersInRequestUri
+  MalformedDate
+}
+pub fn DiagCode::output(Self, &Logger) -> Unit
+pub fn DiagCode::to_string(Self) -> String
+pub impl Show for DiagCode
+
+pub struct Diagnostic {
+  code : DiagCode
+  severity : Severity
+  offset : Int32
+  detail : String
+}
+pub fn Diagnostic::code(Self) -> DiagCode
+pub fn Diagnostic::detail(Self) -> String
+pub fn Diagnostic::offset(Self) -> Int32
+pub fn Diagnostic::output(Self, &Logger) -> Unit
+pub fn Diagnostic::severity(Self) -> Severity
+pub fn Diagnostic::to_string(Self) -> String
+pub impl Show for Diagnostic
+
+pub struct HeaderField {
+  name : Bytes
+  value : Bytes
+  raw : Bytes
+  offset : Int32
+  line : Int32
+}
+pub fn HeaderField::line(Self) -> Int32
+pub fn HeaderField::name(Self) -> Bytes
+pub fn HeaderField::name_is(Self, String) -> Bool
+pub fn HeaderField::offset(Self) -> Int32
+pub fn HeaderField::raw(Self) -> Bytes
+pub fn HeaderField::value(Self) -> Bytes
+
+pub struct HeaderParam {
+  name : Bytes
+  value : Bytes?
+  raw : Bytes
+}
+pub fn HeaderParam::name(Self) -> Bytes
+pub fn HeaderParam::value(Self) -> Bytes?
+
+pub enum Host {
+  Name(Bytes)
+  Ipv4(Bytes)
+  Ipv6Reference(Bytes)
+}
+pub fn Host::output(Self, &Logger) -> Unit
+pub fn Host::to_string(Self) -> String
+pub impl Show for Host
+
+pub struct NameAddr {
+  raw : Bytes
+  display : Bytes?
+  display_quoted : Bool
+  uri : AddrSpec
+  params : Array[HeaderParam]
+  had_angle_brackets : Bool
+}
+pub fn NameAddr::display(Self) -> Bytes?
+pub fn NameAddr::display_quoted(Self) -> Bool
+pub fn NameAddr::had_angle_brackets(Self) -> Bool
+pub fn NameAddr::param(Self, String) -> HeaderParam?
+pub fn NameAddr::params(Self) -> Array[HeaderParam]
+pub fn NameAddr::raw(Self) -> Bytes
+pub fn NameAddr::sip_uri(Self) -> SipUri?
+pub fn NameAddr::tag(Self) -> Bytes?
+pub fn NameAddr::uri(Self) -> AddrSpec
+
+pub struct QuotedString {
+  raw : Bytes
+  value : Bytes
+}
+pub fn QuotedString::raw(Self) -> Bytes
+pub fn QuotedString::value(Self) -> Bytes
+
+pub struct RequestLine {
+  verb : Bytes
+  uri : RequestUri
+  version : Bytes
+  raw : Bytes
+}
+pub fn RequestLine::uri(Self) -> RequestUri
+pub fn RequestLine::verb(Self) -> Bytes
+pub fn RequestLine::version(Self) -> Bytes
+
+pub enum RequestUri {
+  Parsed(SipUri)
+  Other(Bytes)
+}
+pub fn RequestUri::output(Self, &Logger) -> Unit
+pub fn RequestUri::to_string(Self) -> String
+pub impl Show for RequestUri
+
+pub enum Severity {
+  Error
+  Warning
+}
+pub fn Severity::output(Self, &Logger) -> Unit
+pub fn Severity::to_string(Self) -> String
+pub impl Show for Severity
+
+pub struct SipMessage {
+  start : StartLine
+  headers : Array[HeaderField]
+  body : Bytes
+  trailing : Bytes
+  consumed : Int32
+}
+pub fn SipMessage::all_headers(Self, String) -> Array[HeaderField]
+pub fn SipMessage::body(Self) -> Bytes
+pub fn SipMessage::consumed(Self) -> Int32
+pub fn SipMessage::header(Self, String) -> HeaderField?
+pub fn SipMessage::headers(Self) -> Array[HeaderField]
+pub fn SipMessage::start_line(Self) -> StartLine
+pub fn SipMessage::status_code(Self) -> Int32?
+pub fn SipMessage::trailing(Self) -> Bytes
+pub fn SipMessage::verb(Self) -> Bytes?
+
+pub struct SipUri {
+  raw : Bytes
+  scheme : UriScheme
+  user : Bytes?
+  password : Bytes?
+  host : Host
+  port : Int32?
+  params : Array[UriParam]
+  headers : Array[UriHeader]
+}
+pub fn SipUri::headers(Self) -> Array[UriHeader]
+pub fn SipUri::host(Self) -> Host
+pub fn SipUri::is_phone_user(Self) -> Bool
+pub fn SipUri::param(Self, String) -> UriParam?
+pub fn SipUri::params(Self) -> Array[UriParam]
+pub fn SipUri::password(Self) -> Bytes?
+pub fn SipUri::port(Self) -> Int32?
+pub fn SipUri::raw(Self) -> Bytes
+pub fn SipUri::scheme(Self) -> UriScheme
+pub fn SipUri::user(Self) -> Bytes?
+
+pub enum StartLine {
+  Request(RequestLine)
+  Response(StatusLine)
+}
+
+pub struct StatusLine {
+  version : Bytes
+  code : Int32
+  reason : Bytes
+  raw : Bytes
+}
+pub fn StatusLine::code(Self) -> Int32
+pub fn StatusLine::reason(Self) -> Bytes
+pub fn StatusLine::version(Self) -> Bytes
+
+pub enum SyntaxKind {
+  EmptyInput
+  UnexpectedEnd
+  IllegalOctet
+  ExpectedCrlf
+  ExpectedToken
+  ExpectedQuotedString
+  UnterminatedQuotedString
+  UnterminatedComment
+  TrailingGarbage
+  BadEscape
+  BadContentLength
+  MalformedDate
+}
+pub fn SyntaxKind::output(Self, &Logger) -> Unit
+pub fn SyntaxKind::to_string(Self) -> String
+pub impl Show for SyntaxKind
+
+pub struct UriHeader {
+  name : Bytes
+  value : Bytes
+}
+pub fn UriHeader::name(Self) -> Bytes
+pub fn UriHeader::value(Self) -> Bytes
+
+pub struct UriParam {
+  name : Bytes
+  value : Bytes?
+  raw : Bytes
+}
+pub fn UriParam::name(Self) -> Bytes
+pub fn UriParam::value(Self) -> Bytes?
+
+pub enum UriScheme {
+  Sip
+  Sips
+  Other(Bytes)
+}
+pub fn UriScheme::output(Self, &Logger) -> Unit
+pub fn UriScheme::to_string(Self) -> String
+pub impl Show for UriScheme
+
+pub enum Verdict {
+  WellFormed
+  SyntaxRejected
+  SemanticRejected
+}
+pub fn Verdict::output(Self, &Logger) -> Unit
+pub fn Verdict::to_string(Self) -> String
+pub impl Show for Verdict
+
+// Type aliases
+
+// Traits

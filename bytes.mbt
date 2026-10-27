@@ -192,13 +192,13 @@ pub fn bytes_eq_ignore_ascii_case(a : BytesView, b : BytesView) -> Bool {
 ///|
 /// Borrows the whole of `b` as a view.
 pub fn bytes_view_of(b : Bytes) -> BytesView {
-  b.view()
+  b.exact_view()
 }
 
 ///|
 /// Copies an octet range into a fresh `Bytes`. Used when a parsed fragment must
 /// outlive the input buffer.
-pub fn copy_range(src : BytesView, start : Int, end : Int) -> Bytes {
+pub fn copy_range(src : BytesView, start : Int32, end : Int32) -> Bytes {
   let n = end - start
   if n <= 0 {
     return Bytes::new(0)
@@ -235,11 +235,11 @@ pub fn ascii_bytes_of(s : String) -> Bytes {
 /// Compares a byte range against an ASCII literal, case-insensitively.
 pub fn range_eq_ignore_case(
   src : BytesView,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   lit : String,
 ) -> Bool {
-  let l = ascii_bytes_of(lit).view()
+  let l = ascii_bytes_of(lit).exact_view()
   if end - start != l.length() {
     return false
   }
@@ -255,7 +255,7 @@ pub fn range_eq_ignore_case(
 
 ///|
 /// Hex value of an ASCII hex digit, or -1 when the octet is not a hex digit.
-pub fn hex_value(b : Byte) -> Int {
+pub fn hex_value(b : Byte) -> Int32 {
   if b >= b'0' && b <= b'9' {
     (b - b'0').to_int()
   } else if b >= b'A' && b <= b'F' {
@@ -293,7 +293,7 @@ pub fn ascii_of(b : BytesView) -> String {
   for i in 0..<b.length() {
     let v = b[i].to_int()
     if v >= 0x20 && v < 0x7F {
-      out.push(Int::unsafe_to_char(v))
+      out.push(Int32::unsafe_to_char(v))
     } else {
       out.push('.')
     }
@@ -330,7 +330,7 @@ pub fn contains_ignore_case(hay : BytesView, needle : BytesView) -> Bool {
   }
   let mut i = 0
   while i + n <= hay.length() {
-    if bytes_eq_ignore_ascii_case(hay.view(start=i, end=i + n), needle) {
+    if bytes_eq_ignore_ascii_case(hay.exact_view(start=i, end=i + n), needle) {
       return true
     }
     i = i + 1

@@ -48,10 +48,13 @@ pub enum AddrSpec {
 }
 
 ///|
+pub extend AddrSpec with Show::{to_string, output}
+
+///|
 pub impl Show for AddrSpec with fn to_string(self : AddrSpec) -> String {
   match self {
-    Sip(u) => ascii_of(u.raw().view())
-    Other(raw) => ascii_of(raw.view())
+    Sip(u) => ascii_of(u.raw().exact_view())
+    Other(raw) => ascii_of(raw.exact_view())
   }
 }
 
@@ -120,9 +123,9 @@ pub fn NameAddr::had_angle_brackets(self : NameAddr) -> Bool {
 /// name. The fallback exists only because fields without `<>` merge the two
 /// namespaces; see the file header.
 pub fn NameAddr::param(self : NameAddr, name : String) -> HeaderParam? {
-  let want = ascii_bytes_of(name).view()
+  let want = ascii_bytes_of(name).exact_view()
   for p in self.params {
-    if bytes_eq_ignore_ascii_case(p.name.view(), want) {
+    if bytes_eq_ignore_ascii_case(p.name.exact_view(), want) {
       return Some(p)
     }
   }
