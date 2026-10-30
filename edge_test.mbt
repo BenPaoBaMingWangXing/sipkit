@@ -652,7 +652,8 @@ test "uri: sips scheme and non-SIP absoluteURI kept verbatim" {
   match msg.start_line() {
     Request(rl) =>
       match rl.uri() {
-        Other(o) => assert_eq(@sipkit.ascii_of(o.exact_view()), "http://example.com/x")
+        Other(o) =>
+          assert_eq(@sipkit.ascii_of(o.exact_view()), "http://example.com/x")
         Parsed(_) => fail("expected a verbatim non-SIP URI")
       }
     Response(_) => fail("expected a request")
@@ -697,7 +698,9 @@ test "start line: every malformed shape is refused with its kind" {
 ///|
 test "token: a quoted string must open with DQUOTE; trailing garbage is its own kind" {
   let c = @sipkit.Cursor::from_bytes(b"abc")
-  let r : Result[@sipkit.QuotedString, @sipkit.SipError] = Ok(@sipkit.parse_quoted_string(c)) catch {
+  let r : Result[@sipkit.QuotedString, @sipkit.SipError] = Ok(
+    @sipkit.parse_quoted_string(c),
+  ) catch {
     e => Err(e)
   }
   match r {
