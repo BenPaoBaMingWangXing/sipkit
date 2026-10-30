@@ -621,3 +621,104 @@ test "SIP-date: correct dates pass, wrong ones say why" {
     is Some(_),
   )
 }
+
+// ---------------------------------------------------------------------------
+// Remaining accessors, scheme variants and rejection paths
+// ---------------------------------------------------------------------------
+
+///|
+test "uri: Host/UriScheme/UriParam getters and Show round-trip" {
+  let u = parse_sip_uri(
+    Cursor::from_bytes(b"sip:a@192.0.2.9:5060;transport=udp"),
+  )
+  match u.host() {
+    Ipv4(b) => assert_eq(ascii_of(b.exact_view()), "192.0.2.9")
+    _ => fail("expected IPv4")
+  }
+  assert_eq(u.scheme().to_string(), "sip")
+  let p = u.params()[0]
+  assert_eq(ascii_of(p.name().exact_view()), "transport")
+  assert_eq(ascii_of(p.value().unwrap().exact_view()), "udp")
+}
+
+///|
+test "uri: sips scheme and non-SIP absoluteURI kept verbatim" {
+  let s = parse_sip_uri(Cursor::from_bytes(b"sips:x@y"))
+  assert_eq(s.scheme().to_string(), "sips")
+  // absoluteURI values survive as bytes; SipUri::scheme never sees them, but the
+  // RequestUri Other branch does, via the start line of a real request.
+  let raw = b"OPTIONS http://example.com/x SIP/2.0\r\nTo: <sip:a@b>\r\nFrom: <sip:c@d>;tag=1\r\nCall-ID: o9\r\nCSeq: 1 OPTIONS\r\nVia: SIP/2.0/UDP h;branch=z9hG4bK1\r\nMax-Forwards: 70\r\nContent-Length: 0\r\n\r\n"
+  let msg = analyze(raw).message().unwrap()
+  match msg.start_line() {
+    Request(rl) =>
+      match rl.uri() {
+        Other(o) => assert_eq(ascii_of(o.exact_view()), "http://example.com/x")
+        Parsed(_) => fail("expected a verbatim non-SIP URI")
+      }
+    Response(_) => fail("expected a request")
+  }
+}
+
+///|
+test "message: a response has no verb; a request has no status code" {
+  let req = analyze(
+      b"OPTIONS sip:a@b SIP/2.0\r\nTo: <sip:a@b>\r\nFrom: <sip:c@d>;tag=1\r\nCall-ID: ac1\r\nCSeq: 1 OPTIONS\r\nVia: SIP/2.0/UDP h;branch=z9hG4bK1\r\nMax-Forwards: 70\r\nContent-Length: 0\r\n\r\n",
+    )
+    .message()
+    .unwrap()
+  assert_true(req.status_code() is None)
+  let resp = analyze(
+      b"SIP/2.0 200 OK\r\nVia: SIP/2.0/UDP h;branch=z9hG4bK1\r\nFrom: <sip:a@b>;tag=1\r\nTo: <sip:c@d>\r\nCall-ID: ac2\r\nCSeq: 1 OPTIONS\r\nContent-Length: 0\r\n\r\n",
+    )
+    .message()
+    .unwrap()
+  assert_true(resp.verb() is None)
+  assert_eq(resp.status_code().unwrap(), 200)
+}
+
+///|
+test "start line: every malformed shape is refused with its kind" {
+  // no space between method and URI
+  // No space: the method token runs into the colon, and the URI scan that
+  // follows hits end-of-view.
+  expect_syntax(b"INVITEsip:a@b SIP/2.0\r\n\r\n", "illegal octet")
+  // URI present but the version is missing entirely
+  expect_syntax(b"INVITE sip:a@b\r\n\r\n", "illegal octet")
+  // double space before the version
+  expect_syntax(b"INVITE sip:a@b  SIP/2.0\r\n\r\n", "illegal octet")
+  // version with a bad minor
+  expect_syntax(b"INVITE sip:a@b SIP/2.x\r\n\r\n", "illegal octet")
+  // status line without SP before code
+  expect_syntax(
+    b"SIP/2.0200 OK\r\nVia: SIP/2.0/UDP h;branch=z9hG4bK1\r\n\r\n", "illegal octet",
+  )
+}
+
+///|
+test "token: a quoted string must open with DQUOTE; trailing garbage is its own kind" {
+  let c = Cursor::from_bytes(b"abc")
+  let r : Result[QuotedString, SipError] = Ok(parse_quoted_string(c)) catch {
+    e => Err(e)
+  }
+  match r {
+    Ok(_) => fail("expected ExpectedQuotedString")
+    Err(e) => assert_true(e.to_string().contains("expected quoted string"))
+  }
+  // '!' IS a token character (mark in RFC 3261 §25.1), so it is consumed.
+  let c2 = Cursor::from_bytes(b"a!")
+  ignore(parse_token(c2))
+  assert_eq(c2.position(), 2)
+  // ';' stops a token: it is a separator.
+  let c3 = Cursor::from_bytes(b"a;b")
+  ignore(parse_token(c3))
+  assert_eq(c3.position(), 1)
+}
+
+///|
+test "token: quoted string with a trailing escaped quote keeps content" {
+  // \" inside quotes is a literal quote; the string closes on the unescaped one.
+  let c = Cursor::from_bytes(b"\"x\\\"y\"")
+  let qs = parse_quoted_string(c)
+  assert_eq(ascii_of(qs.value().exact_view()), "x\"y")
+  assert_eq(c.position(), 6)
+}

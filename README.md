@@ -20,9 +20,9 @@ RFC 4475 torture corpus   49 messages extracted mechanically from the RFC text
                           every accepted message round-trips byte-for-byte *
 Robustness                >4,000 generated inputs (random, truncated, mutated,
                           spliced) with zero panics
-Coverage                  50 uncovered lines in the library (about 97% of 1,698
+Coverage                  63 uncovered lines in the library (about 97% of 2,021
                           executable lines), measured with `moon coverage analyze`
-Tests                     79, green on wasm · wasm-gc · js · native
+Tests                     91, green on wasm · wasm-gc · js · native
 Dependencies              none
 Panics in the library     none — no `unwrap`, `panic` or `abort` outside tests
 API documentation         112 of 112 public functions carry a doc comment
@@ -121,8 +121,8 @@ replayed on the machine that found it:
 Result: **zero panics**, and the invariants hold — every syntax error carries an offset
 inside the input, and anything that parses can be re-emitted.
 
-Coverage is measured rather than assumed. `moon coverage analyze` reports 58 uncovered
-lines, 50 of them in the library (`cmd/main` accounts for the rest). Against 1,698
+Coverage is measured rather than assumed. `moon coverage analyze` reports 115 uncovered
+lines, 63 of them in the library (`cmd/main` accounts for the rest). Against 2,021
 executable lines — counted as non-blank, non-comment lines, the stated denominator so the
 number can be checked — that is about 97%. The uncovered lines are defensive branches in
 the lexer that the corpus cannot reach.
